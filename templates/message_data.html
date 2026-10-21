@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>造数助手 - 报文主数据</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --topbar-bg: #1e4b8f;
+            --sidebar-bg: #263238;
+            --sidebar-text: #b7c0c9;
+            --sidebar-active-bg: #1e4b8f;
+            --border: #dcdfe6;
+            --border-soft: #eef0f3;
+            --text: #303133;
+            --text-dim: #555861;
+            --text-mute: #909399;
+            --accent: #1e4b8f;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --green: #16a34a;
+            --green-hover: #15803d;
+            --red: #dc3545;
+            --warning: #d69e2e;
+            --info: #3b82f6;
+            --th-bg: #eef2f8;
+            --mono: 'Cascadia Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg); color: var(--text); font-size: 14px; overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .topbar {
+            height: 48px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; background: var(--topbar-bg); border-bottom: 1px solid #163a6b;
+            color: #fff; flex-shrink: 0;
+        }
+        .topbar .title { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: #fff; }
+        .topbar .title .accent { color: #a7c8ff; }
+
+        .layout { display: flex; height: calc(100vh - 48px); }
+
+        .sidebar {
+            width: 240px; min-width: 240px; background: var(--sidebar-bg);
+            overflow-y: auto; padding: 12px 8px; flex-shrink: 0;
+        }
+        .nav-header { padding: 8px 12px 6px; }
+        .nav-header .app-title { font-size: 14px; font-weight: 600; color: #fff; }
+        .nav-header .app-subtitle { font-size: 12px; color: var(--sidebar-text); margin-top: 3px; }
+        .nav-divider { height: 1px; background: rgba(255,255,255,0.10); margin: 10px 12px 8px; }
+
+        .nav-item {
+            display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 2px 0;
+            background: transparent; border: none; border-radius: 6px; color: var(--sidebar-text);
+            font-size: 13px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-item.active { background: var(--sidebar-active-bg); color: #fff; font-weight: 600; }
+        a.nav-item { text-decoration: none; }
+
+        .main { flex: 1; overflow-y: auto; padding: 16px 20px 32px; }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            height: 32px; padding: 0 14px; border: none; border-radius: 6px;
+            font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease; white-space: nowrap;
+            text-decoration: none;
+        }
+        .btn-secondary { background: #e9edf2; color: var(--text-dim); }
+        .btn-secondary:hover { background: #dfe4ea; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-danger { background: var(--red); color: #fff; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-info { background: var(--green); color: #fff; }
+        .btn-info:hover { background: var(--green-hover); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tab {
+            height: 36px; padding: 0 20px; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--card-bg); color: var(--text-dim); font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--primary); color: var(--primary); }
+        .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        .toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+
+        .table-wrap {
+            overflow-x: auto; background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th, .data-table td { border-bottom: 1px solid var(--border-soft); padding: 7px 12px; text-align: left; }
+        .data-table th { background: var(--th-bg); font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+        .data-table td { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .data-table tbody tr:hover { background: #f6f8fc; }
+        .data-table .col-check { width: 40px; text-align: center; }
+        .table-empty { color: var(--text-mute); text-align: center; padding: 32px 0; }
+
+        /* 弹窗 */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 1000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .overlay.show { display: flex; }
+        .modal {
+            background: var(--card-bg); border-radius: 8px; width: 640px; max-width: calc(100vw - 40px);
+            max-height: calc(100vh - 40px); display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+        }
+        .modal.small { width: 400px; }
+        .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border-soft); font-size: 15px; font-weight: 600; color: var(--text); }
+        .modal-body { padding: 20px; overflow: auto; }
+        .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border-soft); display: flex; justify-content: flex-end; gap: 10px; }
+
+        .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+        .field:last-child { margin-bottom: 0; }
+        .field label { font-size: 12px; color: var(--text-mute); }
+        .field input, .field select, .field textarea {
+            background: #fff; border: 1px solid var(--border); border-radius: 6px;
+            color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .field input:focus, .field select:focus, .field textarea:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+        }
+        .field input, .field select { height: 34px; }
+        .field select { cursor: pointer; }
+        .field textarea {
+            min-height: 280px; resize: vertical; font-family: var(--mono);
+            line-height: 1.6; white-space: pre; overflow: auto;
+        }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            padding: 10px 16px; border-radius: 6px; color: #fff; font-size: 13px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); max-width: 360px; word-break: break-all;
+            opacity: 0; transform: translateY(-10px); transition: all 0.3s ease;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background: var(--green); }
+        .toast-error { background: var(--red); }
+        .toast-warning { background: var(--warning); }
+        .toast-info { background: var(--info); }
+
+        /* 可折叠父菜单 */
+        .nav-group { margin: 2px 0; }
+        .nav-parent { display: flex; align-items: center; justify-content: space-between; }
+        .nav-arrow { font-size: 12px; transition: transform 0.2s ease; }
+        .nav-group.collapsed .nav-arrow { transform: rotate(-90deg); }
+        .nav-group.collapsed .nav-sub { display: none; }
+        .nav-sub { overflow: hidden; }
+        .nav-sub-item { padding-left: 32px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="title">报文主数据 <span class="accent">-</span> 公域平台正向造单</span>
+        <a class="btn btn-secondary" href="/">返回造数助手</a>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="nav-header">
+                <div class="app-title">WMS / 订单 造数助手</div>
+                <div class="app-subtitle">中间表 · 订单 · 回传</div>
+            </div>
+            <div class="nav-divider"></div>
+            <div class="nav-group">
+                <button class="nav-item nav-parent" type="button">
+                    <span>基础配置</span><span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-sub">
+                    <a class="nav-item nav-sub-item" href="/#env_config">环境配置</a>
+                    <a class="nav-item nav-sub-item" href="/#db_config">数据库配置</a>
+                </div>
+            </div>
+            <a class="nav-item" href="/#order_copy">平台订单中间表复制</a>
+            <a class="nav-item" href="/#stock_adjust">调整库存</a>
+            <a class="nav-item" href="/#platform_order">公域平台正向造单</a>
+            <a class="nav-item" href="/#reverse_order">公域平台逆向造单</a>
+            <a class="nav-item" href="/history">历史记录</a>
+            <a class="nav-item active" href="/message-data">报文主数据</a>
+        </aside>
+
+        <main class="main">
+            <div class="tabs" id="platform-tabs"></div>
+
+            <div class="toolbar">
+                <button class="btn btn-primary" id="btn-add" onclick="openAddModal()">新增</button>
+                <button class="btn btn-info" id="btn-edit" onclick="openEditModal()">修改</button>
+                <button class="btn btn-danger" id="btn-delete" onclick="openDeleteConfirm()">删除</button>
+                <button class="btn btn-secondary" id="btn-query" onclick="loadList()">查询</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="col-check"><input type="checkbox" id="check-all" onchange="toggleAll(this)"></th>
+                            <th>ID</th>
+                            <th>报文名称</th>
+                            <th>平台</th>
+                            <th>类型</th>
+                            <th>创建时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="message-body">
+                        <tr><td colspan="6" class="table-empty">加载中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增/修改弹窗 -->
+    <div class="overlay" id="edit-overlay">
+        <div class="modal">
+            <div class="modal-header" id="edit-title">新增报文</div>
+            <div class="modal-body">
+                <div class="field">
+                    <label>报文名称（必填）</label>
+                    <input type="text" id="message-name" placeholder="请输入报文名称" />
+                </div>
+                <div class="field">
+                    <label>类型（必填）</label>
+                    <select id="message-type">
+                        <option value="正向">正向</option>
+                        <option value="逆向">逆向</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>报文详情（必填，JSON 报文）</label>
+                    <textarea id="message-detail" placeholder="请输入 JSON 报文"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btn-save" onclick="saveMessage()">保存</button>
+                <button class="btn btn-secondary" id="btn-cancel" onclick="closeEditModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="overlay" id="delete-overlay">
+        <div class="modal small">
+            <div class="modal-header">删除确认</div>
+            <div class="modal-body">确认删除选中报文记录？删除后不可恢复</div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="btn-confirm-delete" onclick="confirmDelete()">确认</button>
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        var PLATFORMS = ['淘宝', '京东', '抖音', '拼多多', '快手', '小红书', '视频号'];
+        var currentPlatform = '淘宝';   // 默认选中淘宝
+        var editingId = null;            // 为 null 表示新增，否则为修改的 id
+
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) { return; }
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + (type || 'info');
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(function () { toast.classList.add('show'); });
+            setTimeout(function () {
+                toast.classList.remove('show');
+                setTimeout(function () { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // ---------- 平台选项卡 ----------
+        function renderTabs() {
+            const wrap = document.getElementById('platform-tabs');
+            wrap.innerHTML = '';
+            PLATFORMS.forEach(function (p) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tab' + (p === currentPlatform ? ' active' : '');
+                btn.textContent = p;
+                btn.addEventListener('click', function () { switchPlatform(p); });
+                wrap.appendChild(btn);
+            });
+        }
+
+        function switchPlatform(p) {
+            currentPlatform = p;
+            renderTabs();
+            loadList();
+        }
+
+        // ---------- 列表 ----------
+        function loadList() {
+            const body = document.getElementById('message-body');
+            body.innerHTML = '<tr><td colspan="6" class="table-empty">加载中…</td></tr>';
+            document.getElementById('check-all').checked = false;
+
+            fetch('/api/message-data/list?platform=' + encodeURIComponent(currentPlatform))
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        renderRows(data.records || []);
+                    } else {
+                        body.innerHTML = '<tr><td colspan="6" class="table-empty">加载失败</td></tr>';
+                        showToast('加载失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () {
+                    body.innerHTML = '<tr><td colspan="6" class="table-empty">加载失败</td></tr>';
+                    showToast('加载失败：网络或服务异常', 'error');
+                });
+        }
+
+        function renderRows(records) {
+            const body = document.getElementById('message-body');
+            if (!records.length) {
+                body.innerHTML = '<tr><td colspan="6" class="table-empty">暂无报文记录</td></tr>';
+                return;
+            }
+            body.innerHTML = '';
+            records.forEach(function (r) {
+                const tr = document.createElement('tr');
+
+                const tdCheck = document.createElement('td');
+                tdCheck.className = 'col-check';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'row-check';
+                cb.value = r.id;
+                tdCheck.appendChild(cb);
+                tr.appendChild(tdCheck);
+
+                const tdId = document.createElement('td');
+                tdId.textContent = r.id;
+                tr.appendChild(tdId);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = r.message_name || '-';
+                tr.appendChild(tdName);
+
+                const tdPlatform = document.createElement('td');
+                tdPlatform.textContent = r.platform || '-';
+                tr.appendChild(tdPlatform);
+
+                const tdType = document.createElement('td');
+                tdType.textContent = r.type || '-';
+                tr.appendChild(tdType);
+
+                const tdTime = document.createElement('td');
+                tdTime.textContent = r.create_time || '-';
+                tr.appendChild(tdTime);
+
+                body.appendChild(tr);
+            });
+        }
+
+        function getSelectedIds() {
+            const ids = [];
+            document.querySelectorAll('#message-body .row-check:checked').forEach(function (cb) {
+                ids.push(parseInt(cb.value, 10));
+            });
+            return ids;
+        }
+
+        function toggleAll(checkbox) {
+            document.querySelectorAll('#message-body .row-check').forEach(function (cb) {
+                cb.checked = checkbox.checked;
+            });
+        }
+
+        // ---------- 新增 / 修改弹窗 ----------
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('edit-title').textContent = '新增报文';
+            document.getElementById('message-name').value = '';
+            document.getElementById('message-type').value = '正向';
+            document.getElementById('message-detail').value = '';
+            document.getElementById('edit-overlay').classList.add('show');
+            document.getElementById('message-name').focus();
+        }
+
+        function openEditModal() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) {
+                showToast('请先勾选一条记录', 'warning');
+                return;
+            }
+            if (ids.length > 1) {
+                showToast('修改仅支持勾选一条记录', 'warning');
+                return;
+            }
+            fetch('/api/message-data/' + ids[0])
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success && data.record) {
+                        editingId = data.record.id;
+                        document.getElementById('edit-title').textContent = '修改报文';
+                        document.getElementById('message-name').value = data.record.message_name || '';
+                        document.getElementById('message-type').value = data.record.type || '正向';
+                        document.getElementById('message-detail').value = data.record.message_detail || '';
+                        document.getElementById('edit-overlay').classList.add('show');
+                    } else {
+                        showToast('加载报文详情失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () {
+                    showToast('加载报文详情失败：网络或服务异常', 'error');
+                });
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-overlay').classList.remove('show');
+        }
+
+        function saveMessage() {
+            const name = document.getElementById('message-name').value;
+            const type = document.getElementById('message-type').value;
+            const detail = document.getElementById('message-detail').value;
+
+            // 冒号前校验：必填字段均不能为空
+            if (!name.trim() || !detail.trim()) {
+                showToast('报文名称、报文详情不能为空', 'error');
+                return;
+            }
+
+            const url = editingId == null ? '/api/message-data/add' : '/api/message-data/' + editingId;
+            const method = editingId == null ? 'POST' : 'PUT';
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platform: currentPlatform,
+                    message_name: name,
+                    message_detail: detail,
+                    type: type
+                })
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        closeEditModal();
+                        showToast(editingId == null ? '新增成功' : '修改成功', 'success');
+                        loadList();
+                    } else {
+                        showToast(((editingId == null) ? '新增失败' : '修改失败') + '：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () {
+                    showToast('操作失败：网络或服务异常', 'error');
+                });
+        }
+
+        // ---------- 删除 ----------
+        function openDeleteConfirm() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) {
+                showToast('请先勾选要删除的记录', 'warning');
+                return;
+            }
+            document.getElementById('delete-overlay').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-overlay').classList.remove('show');
+        }
+
+        function confirmDelete() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) {
+                closeDeleteModal();
+                showToast('请先勾选要删除的记录', 'warning');
+                return;
+            }
+            fetch('/api/message-data/batch', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: ids })
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        closeDeleteModal();
+                        showToast('删除成功', 'success');
+                        loadList();
+                    } else {
+                        closeDeleteModal();
+                        showToast('删除失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () {
+                    closeDeleteModal();
+                    showToast('删除失败：网络或服务异常', 'error');
+                });
+        }
+
+        // ---------- 初始化 ----------
+        renderTabs();
+        loadList();
+    </script>
+    <script>
+        document.querySelectorAll('.nav-parent').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var group = btn.closest('.nav-group');
+                if (group) { group.classList.toggle('collapsed'); }
+            });
+        });
+    </script>
+</body>
+</html>

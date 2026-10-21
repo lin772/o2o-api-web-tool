@@ -1,0 +1,31 @@
+{
+	"message_origin":"mock","tmall_exchange_receive_get_response": {
+		"page_results": 1,
+		"has_next": false,
+		"results": {
+			"exchange": [{
+				"reason": "拍错/不喜欢/不合适",
+				"buyer_address": "安徽省^^^合肥市^^^瑶海区^^^大兴新居*区",
+				"created": "2025-11-10 10:00:59",
+				"num": 3,
+				"buyer_phone": "***********",
+				"buyer_name": "陶**",
+				"title": "OPPO Reno13 超美小直屏 AI高清实况照片 学生拍照智能新品AI手机 oppo官方旗舰店",
+				"dispute_id": "360882720331434003",
+				"buyer_nick": "倾时123",
+				"bought_sku": "5759097452057",
+				"modified": "2025-11-10 10:00:59",
+				"attributes": "{\"newExchangeRepair\":\"1\"}",
+				"seller_nick": "oppo官方旗舰店",
+				"biz_order_id": "8882466666219271358",
+				"exchange_sku": "5656045188112",
+				"oaid": "1WBPoicFR874wzR4Pib8Kb4Xttsm4oqotuv2KP898yxuibEIm31KQ426UffL28T7hibEz9q92t",
+				"alipay_no": "8882466666219271358",
+				"status": "待买家退货"
+			}]
+		},
+		"request_id": "16klcpwux3c7y",
+		"total_results": 1
+	},
+	"nickname": "oppo官方旗舰店"
+}

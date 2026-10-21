@@ -1,0 +1,240 @@
+[
+    {
+        "message_origin": "mock",
+        "jdp_response": {
+            "trade_fullinfo_get_response": {
+                "trade": {
+                    "buyer_area": "福建福州电信",
+                    "tmall_coupon_fee": 3301,
+                    "adjust_fee": "0.00",
+                    "post_fee_type": "normal",
+                    "available_confirm_fee": "291.22",
+                    "seller_mobile": "13087510292",
+                    "snapshot_url": "za:3238903813883023096_1",
+                    "type": "fixed",
+                    "received_payment": "0.00",
+                    "tid": 3238903813883023096,
+                    "buyer_obtain_point_fee": 0,
+                    "point_fee": 0,
+                    "is_sh_ship": false,
+                    "seller_open_uid": "AAFoIlDsAAgk83r1JdnfTFRD",
+                    "service_tags": {
+                        "logistics_tag": [
+                            {
+                                "logistic_service_tag_list": {
+                                    "logistic_service_tag": [
+                                        {
+                                            "service_type": "MTC",
+                                            "service_tag": "origAreaId=350104;capOrderId=v2-887c29d3-4bb1-4fe4-ab1a-0b74fe616a65;empty=1"
+                                        }
+                                    ]
+                                },
+                                "order_id": "3238903813883023096"
+                            },
+                            {
+                                "logistic_service_tag_list": {
+                                    "logistic_service_tag": [
+                                        {
+                                            "service_type": "MTC",
+                                            "service_tag": "fromNick=platform;capOrderId=v2-887c29d3-4bb1-4fe4-ab1a-0b74fe616a65"
+                                        }
+                                    ]
+                                },
+                                "order_id": "3238903813884023096"
+                            },
+                            {
+                                "logistic_service_tag_list": {
+                                    "logistic_service_tag": [
+                                        {
+                                            "service_type": "MTC",
+                                            "service_tag": "fromNick=platform;capOrderId=v2-887c29d3-4bb1-4fe4-ab1a-0b74fe616a65"
+                                        }
+                                    ]
+                                },
+                                "order_id": "3238903813885023096"
+                            }
+                        ]
+                    },
+                    "total_fee": "1798.00",
+                    "modified": "2026-02-09 14:14:44",
+                    "payment": "291.22",
+                    "receiver_country": "",
+                    "seller_cod_fee": "0.00",
+                    "commission_fee": "0.00",
+                    "payment_method": "alipay",
+                    "cod_fee": "0.00",
+                    "platform_subsidy_fee": "0.00",
+                    "buyer_email": "",
+                    "alipay_point": 0,
+                    "q_r_pay": false,
+                    "created": "2026-02-09 14:13:49",
+                    "buyer_cod_fee": "0.00",
+                    "tid_str": "3238903813883023096",
+                    "trade_attr": "{\"erpHold\":\"0\"}",
+                    "pay_time": "2026-02-09 14:14:29",
+                    "real_point_fee": 0,
+                    "seller_alipay_no": "***eegunxa2014@126.com",
+                    "is_gift": false,
+                    "pcc_af": 0,
+                    "has_post_fee": true,
+                    "you_xiang": false,
+                    "coupon_fee": 0,
+                    "is_daixiao": false,
+                    "nr_shop_guide_name": "",
+                    "orders": {
+                        "order": [
+                            {
+                                "seller_rate": false,
+                                "adjust_fee": "0.00",
+                                "num": 1,
+                                "num_iid": 539795830525,
+                                "oid": 3238903813884023096,
+                                "snapshot_url": "za:3238903813884023096_1",
+                                "buyer_rate": false,
+                                "title": "【优惠价】三枪冬季睡衣男女两件套纯棉家居服绒布格子加绒加厚秋冬家居套",
+                                "discount_fee": "501.00",
+                                "is_jzfx": false,
+                                "order_attr": "{\"hasgift\":\"1\"}",
+                                "propoint": "678",
+                                "oid_str": "3238903813884023096",
+                                "price": "799.00",
+                                "total_fee": "298.00",
+                                "seller_type": "B",
+                                "is_oversold": false,
+                                "payment": "291.22",
+                                "is_idle": "0",
+                                "outer_sku_id": "82161D111QZ007004",
+                                "part_mjz_discount": "6.78",
+                                "refund_status": "NO_REFUND",
+                                "gift_mids": "3238903813885023096",
+                                "has_gift": true,
+                                "pic_path": "https://img.alicdn.com/bao/uploaded/i3/2170053036/O1CN01DeartM1YIXZ7hXmHh_!!2170053036.jpg",
+                                "sku_id": "5822391227887",
+                                "sku_properties_name": "颜色分类:男 藏黑格[（咖格）里面材质100%棉];尺码:L;是否加绒:是",
+                                "divide_order_fee": "291.22",
+                                "order_from": "WAP,WAP",
+                                "is_daixiao": false,
+                                "consign_due_time": "2_2",
+                                "is_bybt_order": false,
+                                "cid": 50012772,
+                                "status": "WAIT_SELLER_SEND_GOODS"
+                            },
+                            {
+                                "seller_rate": false,
+                                "adjust_fee": "0.00",
+                                "num": 1,
+                                "num_iid": 987768666781,
+                                "oid": 3238903813885023096,
+                                "snapshot_url": "za:3238903813885023096_1",
+                                "buyer_rate": false,
+                                "title": "满150随机赠品 单拍不发",
+                                "discount_fee": "999.00",
+                                "is_jzfx": false,
+                                "order_attr": "{\"hasgift\":\"1\"}",
+                                "oid_str": "3238903813885023096",
+                                "price": "999.00",
+                                "total_fee": "0.00",
+                                "seller_type": "B",
+                                "is_oversold": false,
+                                "payment": "0.00",
+                                "is_idle": "0",
+                                "refund_status": "NO_REFUND",
+                                "gift_mids": "3238903813884023096",
+                                "nr_outer_iid": "40823B011C0001003",
+                                "pic_path": "https://img.alicdn.com/bao/uploaded/i4/2170053036/O1CN01duMNBl1YIXYSdT7TI_!!4611686018427380140-0-item_pic.jpg",
+                                "divide_order_fee": "0.00",
+                                "is_free_gift": true,
+                                "order_from": "WAP,WAP",
+                                "outer_iid": "40823B011C0001003",
+                                "is_daixiao": false,
+                                "consign_due_time": "2_2",
+                                "is_bybt_order": false,
+                                "cid": 50023728,
+                                "status": "WAIT_SELLER_SEND_GOODS"
+                            }
+                        ]
+                    },
+                    "promotion_details": {
+                        "promotion_detail": [
+                            {
+                                "kd_discount_fee": "41.00",
+                                "promotion_name": "2026年天猫年货节官方立减",
+                                "promotion_id": "commonItemDiscount-126567351668_2623496724148",
+                                "id": 3238903813884023096,
+                                "promotion_desc": "2026年天猫年货节官方立减:省41.00元",
+                                "discount_fee": "41.00"
+                            },
+                            {
+                                "kd_discount_fee": "6.78",
+                                "promotion_name": "taojinbi",
+                                "promotion_id": "uppAcrossPromotion-123456_11111-123",
+                                "id": 3238903813884023096,
+                                "promotion_desc": "taojinbi:省6.78元",
+                                "discount_fee": "6.78"
+                            },
+                            {
+                                "kd_discount_fee": "460.00",
+                                "promotion_name": "优惠价",
+                                "promotion_id": "Tmall$bigMarkdown-126283833519_2626844076435",
+                                "id": 3238903813884023096,
+                                "promotion_desc": "优惠价:省460.00元",
+                                "discount_fee": "460.00"
+                            },
+                            {
+                                "kd_discount_fee": "0.00",
+                                "promotion_name": "店铺满赠1023",
+                                "promotion_id": "Tmall$shopFreeSendGiftPart-122798781841_2683854405232",
+                                "id": 3238903813883023096,
+                                "kd_child_discount_fee": "3238903813884023096|0.00",
+                                "promotion_desc": "店铺满赠1023:省0.00元",
+                                "discount_fee": "0.00"
+                            }
+                        ]
+                    },
+                    "nr_shop_guide_id": "",
+                    "is_lgtype": false,
+                    "seller_can_rate": false,
+                    "v_logistics_create": false,
+                    "status": "WAIT_SELLER_SEND_GOODS",
+                    "seller_rate": false,
+                    "seller_email": "threegunxa2014@126.com",
+                    "post_fee": "0.00",
+                    "receiver_city": "福州市",
+                    "buyer_alipay_no": "****",
+                    "shipping_type": "express",
+                    "buyer_rate": false,
+                    "title": "三枪西安专卖店",
+                    "discount_fee": "6.78",
+                    "sid": "3238903813883023096",
+                    "receiver_state": "福建省",
+                    "receiver_zip": "350007",
+                    "receiver_name": "杨**",
+                    "is_3D": false,
+                    "oaid": "1ZtG9lzaUIH462Ecx1UZ4LVFxZyoTw75Yn3MEud2qo7hGhcESKC4EPBLmm3uI098zn21qq",
+                    "alipay_no": "2026020923001102921401284651",
+                    "cod_status": "NEW_CREATED",
+                    "is_brand_sale": false,
+                    "buyer_open_uid": "AAFMIlDsAAgk83r1JdkllJxR",
+                    "trade_from": "WAP,WAP",
+                    "receiver_district": "仓山区",
+                    "receiver_town": "建新镇",
+                    "credit_card_fee": "258.11",
+                    "has_yfx": false,
+                    "receiver_mobile": "***********",
+                    "is_wt": false,
+                    "seller_flag": 0,
+                    "buyer_nick": "l**",
+                    "service_type": "",
+                    "new_presell": false,
+                    "is_part_consign": false,
+                    "is_force_wlb": false,
+                    "receiver_address": "建*镇闽**道**号天俊蓝水**号****",
+                    "seller_nick": "三枪西安专卖店"
+                }
+            }
+        },
+        "jdp_modified": 1770617685000,
+        "tid": 3238903813883023096,
+        "status": "WAIT_SELLER_SEND_GOODS"
+    }
+]

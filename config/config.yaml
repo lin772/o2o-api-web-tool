@@ -1,0 +1,155 @@
+# =============================================================================
+# 公域平台正向造单工具 - 配置文件
+# 修改本文件后保存，点击工具内「刷新配置」重新加载（无需重启）
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# UI 界面
+# -----------------------------------------------------------------------------
+ui:
+  # 窗口标题
+  window_title: "公域平台正向造单"
+  reverse_window_title: "公域平台逆向造单"
+  # 报文预览区默认高度（行数）
+  message_preview_lines: 22
+  # 悬停「刷新配置」按钮时显示的说明
+  refresh_config_hint: "重新读取本 yaml：环境/平台/转单/SKU 分页等，保存配置后点此生效"
+  # 悬停「查询SKU」按钮时显示的说明
+  sku_query_hint: "查询后可用右侧翻页按钮浏览 SKU；选择场景后自动生成 SKU 下拉框"
+
+# -----------------------------------------------------------------------------
+# 场景报文过滤（正向造单排除；逆向造单仅保留 reverse_scenario_keywords）
+# -----------------------------------------------------------------------------
+scenario_exclude_keywords:
+  - 拒收
+  - 退货
+  - 换货
+
+reverse_scenario_keywords:
+  - 拒收
+  - 退货
+  - 换货
+
+# -----------------------------------------------------------------------------
+# 逆向造单：写入 ip_b_platform_return_order 后的转单行为
+# -----------------------------------------------------------------------------
+reverse_transfer:
+  auto_batch_convert: true
+  poll_timeout_seconds: 45
+
+return_insert_defaults:
+  ad_org_id: 27
+  ad_client_id: 7
+  ownerid: 893
+  isactive: "Y"
+
+# 逆向报文族与 platform_interface_name 对应关系（工具自动设置，一般无需改）
+# standplat -> general_order | taobao_refund -> taobao_return
+# taobao_exchange -> taobao_exchange | jd_refund/jd_exchange -> jingdong_return（换货 customerExpect=20）
+
+# -----------------------------------------------------------------------------
+# 数据库连接（OceanBase 公网偶发 2013，可适当加大超时/重试）
+# -----------------------------------------------------------------------------
+db_connect:
+  connect_timeout: 30
+  read_timeout: 60
+  write_timeout: 60
+  retry_times: 3
+  retry_delay_seconds: 2
+
+
+# -----------------------------------------------------------------------------
+# 写入 IP_B_PLATFORM_ORDER_SOURCE 时的固定字段
+# trans_status=0 表示未转换，转单成功后由 OMS 更新为 2
+# ad_client_id / ad_org_id：默认从所选店铺 CP_C_SHOP 档案读取（见 source_insert）
+#   仅当店铺档案为空时，才回退使用下方默认值
+# -----------------------------------------------------------------------------
+source_insert:
+  # true=ad_client_id、ad_org_id 以店铺档案为准（推荐，VF 台湾店一般为 7）
+  derive_client_from_shop: true
+
+source_defaults:
+  trans_count: 0
+  trans_status: 0
+  ad_org_id: 27
+  isactive: "Y"
+  ad_client_id: 7
+  ownerid: 893
+  is_sys_encrypted: 1
+
+# -----------------------------------------------------------------------------
+# 转单行为（生成订单时是否自动调用 OMS 接口）
+# -----------------------------------------------------------------------------
+transfer:
+  # 报文 -> 平台订单（batchTransfer，等价 MQ 转单补偿）
+  auto_source_transfer: true
+  # 平台订单 -> 零售发货单（orderTransfer）
+  auto_retail_transfer: true
+  # 轮询等待超时（秒）
+  poll_timeout_seconds: 45
+
+
+
+# -----------------------------------------------------------------------------
+# 商品条码字段识别顺序（在报文明细行 items / order 中按此顺序取 SKU 槽位）
+# -----------------------------------------------------------------------------
+sku_field_keys:
+  - outer_sku_id
+  - outerSkuId
+  - outer_sku_code
+
+# -----------------------------------------------------------------------------
+# 平台元数据（公域报文汇总/下的文件夹名 -> OMS 平台参数）
+# 若新增平台文件夹但未在此配置，工具会提示需补充 platform_id / method
+# message_format:
+#   standplat  - 标准公域结构 {sellernick, data:[...], platform}，入库时 data 转为单对象
+#   jdp_array  - 淘宝类 [{message_origin, jdp_response:{...}}] 数组结构
+#   jd_array   - 京东类 {orderInfoList:[...]} 结构
+# method 为空时请在 OMS 查该平台订单报文的 method 字段后填入
+# -----------------------------------------------------------------------------
+platform_meta:
+  抖音:
+    platform_id: 57
+    method: shop_mall_order
+    message_format: standplat
+  拼多多:
+    platform_id: 27
+    method: shop_mall_order
+    message_format: standplat
+  快手:
+    platform_id: 201
+    method: shop_mall_order
+    message_format: standplat
+  小红书:
+    platform_id: 60
+    method: shop_mall_order
+    message_format: standplat
+  视频号:
+    platform_id: 243
+    method: shi_ping_hao_order
+    message_format: standplat
+  淘宝:
+    platform_id: 2
+    method: taobao_trade_TradeBuyerPay
+    message_format: jdp_array
+  京东:
+    platform_id: 4
+    method: jingdong_pop_order_order_search
+    message_format: jd_array
+
+xxl_status_tasks:
+  - status: 50
+    name: "TobeConfirmedSendMqTask"
+    id: 340
+    class_name: "com.jackrain.nea.oc.oms.task.tobeconfirm.TobeConfirmedSendMqTask"
+  - status: 2
+    name: "OmsOccupyServiceTask"
+    id: 341
+    class_name: "com.jackrain.nea.oc.oms.task.occupy.OmsOccupyServiceTask"
+  - status: 1
+    name: "auditOrder"
+    action: "audit"
+  - status: 3
+    name: "AutoOrderWmsTask"
+    id: 343
+    class_name: "com.jackrain.nea.oc.oms.task.orderwms.AutoOrderWmsTask"

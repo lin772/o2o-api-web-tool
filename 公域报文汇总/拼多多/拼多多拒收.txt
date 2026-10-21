@@ -1,0 +1,32 @@
+{
+ "message_origin": "mock","sellernick": "OPPO官方旗舰店",
+ "data": [{
+  "order_no": "260403-467602030961042",
+  "return_reason": "不想要了",
+  "refund_type": 1,
+  "logistics_no": "",
+  "created": "2025-05-12 14:44:41",
+  "platform_refund_status": "2",
+  "item_num": 20,
+  "good_status": 2,
+  "buyer_remark": "降价了",
+  "return_no": "133868427247",
+  "return_status": 2,
+  "modified": "2025-05-12 14:44:41",
+  "refund_amount": 8547.36,
+  "speed_refund_flag": 0,
+  "items": [{
+   "productcode": "922278400562",
+   "quantity": 20,
+   "return_no": "133868427247",
+   "return_quantity": 20,
+   "outer_goods_id": "",
+   "price": 8547.36,
+   "sku_id": "1871818290120",
+   "product_code": "922278400562",
+   "sku": "110010131610",
+   "title": "OPPO侧"
+  }]
+ }],
+ "platform": "27"
+}

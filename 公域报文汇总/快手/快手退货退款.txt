@@ -1,0 +1,33 @@
+{
+	"message_origin": "mock",
+	"sellernick": "快手OPPO官方旗舰店",
+	"data": [
+		{
+			"order_no": "2607600405620469",
+			"refund_version": "1775717274950",
+			"return_reason": "支持7天无理由退货",
+			"refund_type": 2,
+			"seller_return_address_detail": "河南省郑州市郑州航空港经济综合实验区明港街道河南省郑州市新郑市航空港区双鹤一街和工业五路交叉口智能手机产业园C区17栋-快手OPPO手机售后组",
+			"created": "2026-04-09 14:47:54",
+			"sub_order_id": "2607600405620469",
+			"is_refund_balance": "2",
+			"good_status": 0,
+			"buyer_nick": "2271416749",
+			"return_no": "2609902083113757",
+			"return_status": 2,
+			"modified": "2026-04-09 14:47:54",
+			"refund_amount": 2459.05,
+			"reserve_decimal06": 2,
+			"items": [
+				{
+					"return_no": "2609902083113757",
+					"outer_goods_id": "2607600405620469",
+					"refund_fee": 2459.05,
+					"sku_id": "180001737480830",
+					"sub_order_id": "2607600405620469"
+				}
+			]
+		}
+	],
+	"platform": "201"
+}

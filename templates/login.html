@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 造数助手</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --topbar-bg: #1e4b8f;
+            --sidebar-bg: #263238;
+            --border: #dcdfe6;
+            --border-soft: #eef0f3;
+            --text: #303133;
+            --text-dim: #555861;
+            --text-mute: #909399;
+            --accent: #1e4b8f;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --red: #dc3545;
+            --green: #16a34a;
+            --warning: #d69e2e;
+            --info: #3b82f6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e4b8f 0%, #263238 100%);
+            color: var(--text);
+            display: flex; align-items: center; justify-content: center;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .login-card {
+            width: 380px; max-width: calc(100vw - 40px);
+            background: var(--card-bg); border-radius: 10px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: var(--topbar-bg);
+            padding: 28px 32px 22px; color: #fff;
+        }
+        .login-header .brand { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+        .login-header .brand .accent { color: #a7c8ff; }
+        .login-header .subtitle { font-size: 12px; color: #d5e2f5; margin-top: 6px; }
+
+        .login-body { padding: 28px 32px 32px; }
+
+        .form-field { margin-bottom: 18px; }
+        .form-field label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+        .form-field label::after { content: '：'; }
+        .form-field input {
+            width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 6px;
+            padding: 0 12px; font-size: 14px; color: var(--text); outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .form-field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+
+        .btn-login {
+            width: 100%; height: 42px; border: none; border-radius: 6px;
+            background: var(--primary); color: #fff; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: background 0.15s ease;
+        }
+        .btn-login:hover { background: var(--primary-hover); }
+        .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .login-footer { margin-top: 20px; text-align: center; font-size: 12px; color: var(--text-mute); }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            padding: 10px 16px; border-radius: 6px; color: #fff; font-size: 13px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); max-width: 360px; word-break: break-all;
+            opacity: 0; transform: translateY(-10px); transition: all 0.3s ease;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background: var(--green); }
+        .toast-error { background: var(--red); }
+        .toast-warning { background: var(--warning); }
+        .toast-info { background: var(--info); }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-header">
+            <div class="brand">造数助手 <span class="accent">-</span> 订单复制 / 公域平台造单</div>
+            <div class="subtitle">WMS / 订单 中间表 · 订单 · 回传</div>
+        </div>
+        <div class="login-body">
+            <form id="login-form" autocomplete="off">
+                <div class="form-field">
+                    <label for="username">登录账号</label>
+                    <input type="text" id="username" name="username" placeholder="请输入登录账号" autofocus />
+                </div>
+                <div class="form-field">
+                    <label for="password">登录密码</label>
+                    <input type="password" id="password" name="password" placeholder="请输入登录密码" />
+                </div>
+                <button type="submit" class="btn-login" id="btn-login">登 录</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) { return; }
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + (type || 'info');
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(function () { toast.classList.add('show'); });
+            setTimeout(function () {
+                toast.classList.remove('show');
+                setTimeout(function () { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        document.getElementById('login-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('btn-login');
+
+            if (!username) { showToast('请输入登录账号', 'warning'); return; }
+            if (!password) { showToast('请输入登录密码', 'warning'); return; }
+
+            btn.disabled = true;
+            btn.textContent = '登录中…';
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        window.location.href = '/';
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = '登 录';
+                        showToast((data && data.error_msg) || '登录失败', 'error');
+                    }
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    btn.textContent = '登 录';
+                    showToast('登录失败：网络或服务异常', 'error');
+                });
+        });
+    </script>
+</body>
+</html>

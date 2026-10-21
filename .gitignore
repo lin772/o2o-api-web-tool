@@ -1,0 +1,21 @@
+# Python虚拟环境（重点！体积很大，严禁上传）
+.venv/
+.dbg/
+
+# Python缓存
+__pycache__/
+*.pyc
+
+# 日志文件
+debug.log
+logs/
+
+# 本地运行生成的状态、历史数据
+api_history.json
+ui_state.json
+
+# 数据库数据目录
+mysql_data/
+
+# 私有环境变量、密码配置
+.env

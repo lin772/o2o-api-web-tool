@@ -1,0 +1,251 @@
+[{
+	"message_origin": "mock",
+	"jdp_response": {
+		"trade_fullinfo_get_response": {
+			"trade": {
+				"buyer_area": "上海上海电信ADSL",
+				"tmall_coupon_fee": 3163,
+				"adjust_fee": "0.00",
+				"post_fee_type": "normal",
+				"available_confirm_fee": "427.56",
+				"seller_mobile": "13761386949",
+				"snapshot_url": "y:3336646986708430173_1",
+				"type": "fixed",
+				"received_payment": "0.00",
+				"tid": 3336646986708430173,
+				"buyer_obtain_point_fee": 0,
+				"point_fee": 0,
+				"is_sh_ship": false,
+				"seller_open_uid": "AAEmIlDsAAgk83r1JdlIyXp1",
+				"service_tags": {
+					"logistics_tag": [{
+						"logistic_service_tag_list": {
+							"logistic_service_tag": [{
+								"service_type": "MTC",
+								"service_tag": "cutoffMinutes=960;esDate=2025-03-06;esLineId=8;signTimingBrand=51;origAreaId=310108012;capOrderId=v2-927bdc89-2e0a-4214-a19e-dbab64bd19b5;esTime=2"
+							}]
+						},
+						"order_id": "3336646986708430173"
+					}, {
+						"logistic_service_tag_list": {
+							"logistic_service_tag": [{
+								"service_type": "MTC",
+								"service_tag": "fromNick=platform;capOrderId=v2-927bdc89-2e0a-4214-a19e-dbab64bd19b5"
+							}]
+						},
+						"order_id": "3336646986709430151"
+					}, {
+						"logistic_service_tag_list": {
+							"logistic_service_tag": [{
+								"service_type": "MTC",
+								"service_tag": "fromNick=platform;capOrderId=v2-927bdc89-2e0a-4214-a19e-dbab64bd19b5"
+							}]
+						},
+						"order_id": "3336646986710430151"
+					}, {
+						"logistic_service_tag_list": {
+							"logistic_service_tag": [{
+								"service_type": "MTC",
+								"service_tag": "fromNick=platform;capOrderId=v2-927bdc89-2e0a-4214-a19e-dbab64bd19b5"
+							}]
+						},
+						"order_id": "3336646986711430151"
+					}]
+				},
+				"total_fee": "1557.00",
+				"modified": "2025-03-04 13:45:55",
+				"seller_phone": "-",
+				"payment": "427.56",
+				"receiver_country": "",
+				"seller_cod_fee": "0.00",
+				"commission_fee": "0.00",
+				"cod_fee": "0.00",
+				"platform_subsidy_fee": "0.00",
+				"buyer_email": " ",
+				"alipay_point": 0,
+				"q_r_pay": false,
+				"buyer_message": "送",
+				"created": "2025-03-04 13:44:43",
+				"buyer_cod_fee": "0.00",
+				"tid_str": "3336646986708430173",
+				"trade_attr": "{\"esDate\":\"2025-03-06\",\"signTime\":\"2025-03-06 23:59:59\",\"erpHold\":\"0\"}",
+				"pay_time": "2025-03-04 13:44:54",
+				"real_point_fee": 0,
+				"seller_alipay_no": "***eegun888@yahoo.cn",
+				"is_gift": false,
+				"pcc_af": 0,
+				"has_post_fee": true,
+				"you_xiang": false,
+				"coupon_fee": 0,
+				"is_daixiao": false,
+				"nr_shop_guide_name": "",
+				"orders": {
+					"order": [{
+						"seller_rate": false,
+						"adjust_fee": "0.00",
+						"num": 1,
+						"num_iid": 685215542560,
+						"oid": 3331146986708430173,
+						"snapshot_url": "y:3331146986708430173_1",
+						"buyer_rate": false,
+						"title": "【活动价】oppo",
+						"discount_fee": "700.00",
+						"is_jzfx": false,
+						"order_attr": "{\"hasgift\":\"1\"}",
+						"oid_str": "3331146986708430173",
+						"price": "1099.00",
+						"total_fee": "399.00",
+						"seller_type": "B",
+						"is_oversold": false,
+						"payment": "341.95",
+						"is_idle": "0",
+						"outer_sku_id": "110110520015",
+						"part_mjz_discount": "57.05",
+						"refund_status": "NO_REFUND",
+						"gift_mids": "3331146986708430173",
+						"nr_outer_iid": "24183D0/24184D0-FL",
+						"has_gift": true,
+						"pic_path": "https://img.alicdn.com/bao/uploaded/i1/383602586/O1CN01qg1so01UyR0gBj2Wg_!!383602586.jpg",
+						"sku_id": "5568563948303",
+						"sku_properties_name": "L",
+						"divide_order_fee": "341.95",
+						"order_from": "WAP,WAP",
+						"outer_iid": "24183D0/24184D0-FL",
+						"is_daixiao": false,
+						"consign_due_time": "2_2",
+						"is_bybt_order": false,
+						"cid": 50012778,
+						"status": "WAIT_SELLER_SEND_GOODS"
+					}, {
+						"seller_rate": false,
+						"adjust_fee": "0.00",
+						"num": 1,
+						"num_iid": 739196739878,
+						"oid": 3332246986708430173,
+						"snapshot_url": "y:3332246986708430173_1",
+						"buyer_rate": false,
+						"title": "【活动价】oppo",
+						"discount_fee": "199.10",
+						"is_jzfx": false,
+						"order_attr": "{\"hasgift\":\"1\"}",
+						"oid_str": "3332246986708430173",
+						"price": "299.00",
+						"total_fee": "99.90",
+						"seller_type": "B",
+						"is_oversold": false,
+						"payment": "85.61",
+						"is_idle": "0",
+						"outer_sku_id": "120030230002",
+						"part_mjz_discount": "14.29",
+						"refund_status": "NO_REFUND",
+						"gift_mids": "3332246986708430173",
+						"nr_outer_iid": "41048X0",
+						"has_gift": true,
+						"pic_path": "https://img.alicdn.com/bao/uploaded/i2/383602586/O1CN01Oc00Mp1UyR6ZBj9Of_!!383602586.jpg",
+						"sku_id": "5187291092734",
+						"sku_properties_name": "颜色分类:XL",
+						"divide_order_fee": "85.61",
+						"order_from": "WAP,WAP",
+						"outer_iid": "41048X0",
+						"is_daixiao": false,
+						"consign_due_time": "2_2",
+						"is_bybt_order": false,
+						"cid": 201774302,
+						"status": "WAIT_SELLER_SEND_GOODS"
+					}]
+				},
+				"promotion_details": {
+					"promotion_detail": [{
+						"kd_discount_fee": "0.00",
+						"promotion_name": "满99包邮",
+						"promotion_id": "Tmall$shopFreeShippingAll-76715424275_1566879786696",
+						"id": 3336646986708430173,
+						"kd_child_discount_fee": "3336646986709430151|0.00,3336646986710430151|0.00",
+						"promotion_desc": "满99包邮:省0.00元",
+						"discount_fee": "0.00"
+					}, {
+						"kd_discount_fee": "14.29",
+						"promotion_name": "2025年38焕新周跨店满减",
+						"promotion_id": "tbCross-102835332105_1990336563866",
+						"id": 3336646986710430151,
+						"promotion_desc": "2025年38焕新周跨店满减:省14.29元",
+						"discount_fee": "14.29"
+					}, {
+						"kd_discount_fee": "700.00",
+						"promotion_name": "活动价",
+						"promotion_id": "Tmall$bigMarkdown-102729483100_2008257444732",
+						"id": 3336646986709430151,
+						"promotion_desc": "活动价:省700.00元",
+						"discount_fee": "700.00"
+					}, {
+						"kd_discount_fee": "57.05",
+						"promotion_name": "2025年38焕新周跨店满减",
+						"promotion_id": "tbCross-102835332105_1990336563866",
+						"id": 3336646986709430151,
+						"promotion_desc": "2025年38焕新周跨店满减:省57.05元",
+						"discount_fee": "57.05"
+					}, {
+						"kd_discount_fee": "199.10",
+						"promotion_name": "活动价",
+						"promotion_id": "Tmall$bigMarkdown-102729483100_2008257588235",
+						"id": 3336646986710430151,
+						"promotion_desc": "活动价:省199.10元",
+						"discount_fee": "199.10"
+					}, {
+						"kd_discount_fee": "0.00",
+						"promotion_name": "会员加赠满399元送",
+						"promotion_id": "Tmall$shopFreeSendGiftPart-104932737055_2001280707876",
+						"id": 3336646986708430173,
+						"kd_child_discount_fee": "3336646986709430151|0.00,3336646986710430151|0.00",
+						"promotion_desc": "会员加赠满399元送:省0.00元",
+						"discount_fee": "0.00"
+					}]
+				},
+				"nr_shop_guide_id": "",
+				"is_lgtype": false,
+				"seller_can_rate": false,
+				"v_logistics_create": false,
+				"status": "WAIT_SELLER_SEND_GOODS",
+				"seller_rate": false,
+				"seller_email": "758505480@qq.com",
+				"post_fee": "0.00",
+				"receiver_city": "上海市",
+				"buyer_alipay_no": "****",
+				"shipping_type": "express",
+				"buyer_rate": false,
+				"title": "oppo官方旗舰店",
+				"discount_fee": "71.34",
+				"sid": "3336646986708430173",
+				"receiver_state": "上海",
+				"receiver_zip": "200040",
+				"receiver_name": "小**",
+				"is_3D": false,
+				"oaid": "12qOpa499icWR2Lu5jhPQibl42XiaqoFTSdUYWSp7s0mrnR227aDkNbJ26O98IoKkeDJMlffz",
+				"alipay_no": "2025030423001101701430238892",
+				"cod_status": "NEW_CREATED",
+				"is_brand_sale": false,
+				"buyer_open_uid": "AAEHIlDsAAgk83r1Jdk9ySmy",
+				"es_date": "2025-03-06",
+				"trade_from": "WAP,WAP",
+				"receiver_district": "静安区",
+				"receiver_town": "共和新路街道",
+				"credit_card_fee": "392.44",
+				"has_yfx": false,
+				"receiver_mobile": "***********",
+				"sign_time": "2025-03-06 23:59:59",
+				"is_wt": false,
+				"seller_flag": 0,
+				"buyer_nick": "t**",
+				"service_type": "",
+				"new_presell": false,
+				"is_part_consign": false,
+				"is_force_wlb": false,
+				"receiver_address": "共和**街道**路***号新慧**幢***",
+				"seller_nick": "oppo官方旗舰店"
+			}
+		}
+	},
+	"jdp_modified": 1741067156000,
+	"tid": 3336646986708430173,
+	"status": "WAIT_SELLER_SEND_GOODS"
+}]

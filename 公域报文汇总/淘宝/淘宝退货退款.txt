@@ -1,0 +1,46 @@
+[{
+	"message_origin":"mock","jdp_response": {
+		"refund_get_response": {
+			"refund": {
+				"refund_version": 1747378164619,
+				"reason": "不想要了",
+				"num": 1,
+				"shipping_type": "express",
+				"num_iid": 923010241660,
+				"oid": 888246666621927197,
+				"title": "OPPO Find X8 Pro",
+				"tid": 888246666621927197,
+				"good_status": "BUYER_RETURNED_GOODS",
+				"sid": "SF6620250624002",
+				"operation_contraint": "on_web",
+				"order_status": "TRADE_CLOSED",
+				"seller_open_uid": "AAGEIlDsAAgk83r1JdmQ98GW",
+				"price": "100",
+				"total_fee": "100",
+				"modified": "2025-05-19 12:06:55",
+				"payment": "0.00",
+				"attribute": ";reason:400486;xiaoerOperation:2;prepaidTime:2025-05-16 14#3B51#3B28;payOutAccount:TAOBAO,2088501557310829;7d:1;pGNTEE:disputeJudge;lock:1;_F_tlmType:C_tbwang;sku:5798975404887|机身颜色#3B晴空航线#3A存储容量#3B12GB+256GB#3A套餐类型#3B套餐一#3A版本类型#3B中国大陆;advanceContractType:ZHIMA_COMBINED;jibuBizCode:taobao.jibu;hasSKR:1;splitTaobaoFee:99900;nrp:1;88vip:1;csInter:xiaoer;agreeRefundApplyTime:2025-05-16 14#3B49#3B26;sars:skip;EXmrf:99900;advanceVersion:3;enfunddetail:1;gaia:2;lastOrder:0;zhimaCreditLevel:Z1;tod:604800000;t_m_c:1;intentReturnGoodsType:RETURN_BY_SELF;opRole:daemon;apply_init_refund_fee:99900;abilitySuccessFlag:1;apply_text_id:400486;sdkCode:ali.china.taobao;_F_uplus:1;interceptStatus:0;rpmr2:1;csPostBearer:1;agrExctd:1;tos:3;ol_tf:99900;ability:1;part_refund:0;agreeRole:3;payMode:alipay;splitType:sellerAgree;priceFeeDisplayTips:CASH^ali^支付宝^99900;abilityTemplateCode:ERP_IN_WAREHOUSE_AUTO_AGREE_REFUND^24^2|;isAdvContChecked:1;preFee:99900;xcommerce:1;prepaidBuyerNoCash:1;apply_biz_type:24;itemPrice:99900;csReturnGoods:1;csTakeTaskTime:2025-05-16 14#3B49#3B25;fundFlowInfo:CASH^ALIPAY_FUND^支付宝^99900;bizCode:taobao.general.refund;leavesCat:1512;V3Process:1;apply_reason_text:不想要了;itemBuyAmount:1;prepaidType:returnGoodPrepaid;interceptItemListResult:[{\"subBizOrderId\"#3B888246666621927197,\"logisticInterceptEnum\"#3B\"INTERCEPT_NOT_APPLY\"}];seller_batch:true;logisticsCompanyName:清库存;clj_zero_second_refund:1;cPartRefund:0;advanceSplitCustom:1;DBT:erpInWarehouseAutoAgreeRefund;selfReturnShowType:normal;sgr:1;bgmtc:2025-05-16 12#3B11#3B38;advanceZhimaConsultId:ZMEV99202505160100810062519777;shop_name:超超卖地毯;ttid:201300@taobao_iphone_10.49.0;sync:0;rp3:1;disputeTradeStatus:4;isVirtual:0;xiaoerModifyAction:4;refundFrom:2;splitSellerFee:0;f_proofSource:1#3A2#3A0#3A0#3A;newRefund:rp2;logisticsOrderCode:SF3184618573885;newUltron:3;erpInWarehouseAutoAgreeRefund:2;userCredit:6;rootCat:1512;selfReturnSourceTtid:201300@taobao_iphone_10.49.0;chnlObn:888246666621927197_advance;chfr:1;selfReturnBucketInfo:AB_202409191733_306#828635#2;appName:rtee;fps:4;workflowName:return_and_refund;seller_audit:0;price_protection_seller:2025-05-16 12#3B11#3B59~2025-05-23 12#3B11#3B58;s2AdvPostSsF:0;toSellerFee:0;refundFlowType:V3Process;split_to_advance_subsidy_fee:0;",
+				"sku": "110110530015|机身颜色:晴空航线;存储容量:12GB+256GB;套餐类型:套餐一;版本类型:中国大陆",
+				"alipay_no": "2025051623001139811437155878",
+				"buyer_open_uid": "AAEdIlDsAAgk83r1JdlK-OLT",
+				"address": "OPPO天猫官方售后， 0371-61844016， 河南省郑州市新郑市   河南省郑州市新郑市航空港区双鹤一街和工业五路交叉口智能手机产业园C区17号楼一楼（派送上门，不可放快递柜）， 056400",
+				"created": "2025-05-16 14:49:24",
+				"refund_id": "212853147501065969",
+				"buyer_nick": "许**",
+				"dispute_type": "REFUND_AND_RETURN",
+				"refund_phase": "onsale",
+				"company_name": "顺丰",
+				"refund_fee": "100",
+				"good_return_time": "2025-05-16 14:51:24",
+				"cs_status": 6,
+				"seller_nick": "oppo官方旗舰店",
+				"has_good_return": true,
+				"status": "WAIT_BUYER_RETURN_GOODS",
+				"desc": ""
+			}
+		}
+	},
+	"jdp_modified": 1747627615000,
+	"refund_id": 212853147501065969,
+	"status": "WAIT_BUYER_RETURN_GOODS"
+}]

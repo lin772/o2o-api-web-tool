@@ -1,0 +1,162 @@
+[
+    {
+        "message_origin": "mock",
+		"jdp_response": {
+            "trade_fullinfo_get_response": {
+                "trade": {
+                    "buyer_area": "上海上海闸北区 /杨浦区电信ADSL",
+                    "tmall_coupon_fee": 0,
+                    "adjust_fee": "0.00",
+                    "num": 1,
+                    "post_fee_type": "normal",
+                    "available_confirm_fee": "100",
+                    "seller_mobile": "15221097013",
+                    "snapshot_url": "z:888246666621927407_1",
+                    "type": "fixed",
+                    "received_payment": "0.00",
+                    "tid": 888246666621927407,
+                    "buyer_obtain_point_fee": 0,
+                    "point_fee": 0,
+                    "is_sh_ship": false,
+                    "seller_open_uid": "AAGFIlDsAAgk83r1JdnNNZLL",
+                    "service_tags": {
+                        "logistics_tag": [
+                            {
+                                "logistic_service_tag_list": {
+                                    "logistic_service_tag": [
+                                        {
+                                            "service_type": "MTC",
+                                            "service_tag": "origAreaId=310112;capOrderId=v2-97dc77b7-4305-415f-a207-7f7c9529cab0;empty=1"
+                                        }
+                                    ]
+                                },
+                                "order_id": "888246666621927407"
+                            },
+                            {
+                                "logistic_service_tag_list": {
+                                    "logistic_service_tag": [
+                                        {
+                                            "service_type": "TB_CONSIGN_DATE",
+                                            "service_tag": "consignDate=48"
+                                        },
+                                        {
+                                            "service_type": "MTC",
+                                            "service_tag": "fromNick=platform;capOrderId=v2-97dc77b7-4305-415f-a207-7f7c9529cab0"
+                                        }
+                                    ]
+                                },
+                                "order_id": "888246666621927407"
+                            }
+                        ]
+                    },
+                    "price": "100",
+                    "total_fee": "100",
+                    "modified": "2025-11-10 11:06:25",
+                    "payment": "100",
+                    "receiver_country": "",
+                    "seller_cod_fee": "0.00",
+                    "commission_fee": "0.00",
+                    "cod_fee": "0.00",
+                    "platform_subsidy_fee": "0.00",
+                    "buyer_email": "",
+                    "alipay_point": 0,
+                    "q_r_pay": false,
+                    "created": "2025-11-10 11:06:12",
+                    "buyer_cod_fee": "0.00",
+                    "tid_str": "888246666621927407",
+                    "trade_attr": "{\"erpHold\":\"0\"}",
+                    "pay_time": "2025-11-10 11:06:25",
+                    "real_point_fee": 0,
+                    "seller_alipay_no": "******@qq.com",
+                    "is_gift": false,
+                    "send_time": "2025-11-10",
+                    "pcc_af": 0,
+                    "has_post_fee": true,
+                    "you_xiang": false,
+                    "coupon_fee": 0,
+                    "is_daixiao": false,
+                    "nr_shop_guide_name": "",
+                    "orders": {
+                        "order": [
+                            {
+                                "seller_rate": false,
+                                "adjust_fee": "0.00",
+                                "num": 1,
+                                "num_iid": 898416301548,
+                                "oid": 888246666621927407,
+                                "snapshot_url": "z:888246666621927407_1",
+                                "buyer_rate": false,
+                                "title": "Reg测试商品下载2",
+                                "extend_info": "{\"privacy\":\"1\"}",
+                                "discount_fee": "0.00",
+                                "is_jzfx": false,
+                                "oid_str": "888246666621927407",
+                                "price": "100",
+                                "total_fee": "100",
+                                "seller_type": "C",
+                                "is_oversold": false,
+                                "payment": "100",
+                                "is_idle": "0",
+                                "outer_sku_id": "120030230002",
+                                "refund_status": "NO_REFUND",
+                                "pic_path": "https://img.alicdn.com/bao/uploaded/i2/2468456228/O1CN015n7z1Z1vsTjiMQMlL_!!2468456228.jpg",
+                                "sku_id": "5751449380240",
+                                "sku_properties_name": "颜色分类:翠绿色;测试:1",
+                                "divide_order_fee": "400",
+                                "order_from": "WAP,WAP",
+                                "is_daixiao": false,
+                                "consign_due_time": "2_2",
+                                "is_bybt_order": false,
+                                "cid": 201923602,
+                                "status": "WAIT_SELLER_SEND_GOODS"
+                            }]
+                    },
+                    "nr_shop_guide_id": "",
+                    "is_lgtype": false,
+                    "seller_can_rate": false,
+                    "v_logistics_create": false,
+                    "status": "WAIT_SELLER_SEND_GOODS",
+                    "seller_rate": false,
+                    "seller_email": "1596664615@qq.com",
+                    "post_fee": "0",
+                    "receiver_city": "深圳市",
+                    "buyer_alipay_no": "****",
+                    "shipping_type": "express",
+                    "num_iid": 898416301548,
+                    "buyer_rate": false,
+                    "title": "d[s127020616]",
+                    "consign_interval": 48,
+                    "discount_fee": "0.00",
+                    "sid": "888246666621927407",
+                    "receiver_state": "广东省",
+                    "receiver_zip": "000000",
+                    "receiver_name": "蒲**",
+                    "is_3D": false,
+                    "oaid": "1SSWkZ60JZlC7seLQVUUBoBcUodib2aq4qoibne98PCNu9b72R5194mScWvzt3fxicK1J6icWV",
+                    "alipay_no": "2025032123001125541408506389",
+                    "cod_status": "NEW_CREATED",
+                    "is_brand_sale": false,
+                    "buyer_open_uid": "AAHkIlDsAAgk83r1JdnKNgq0",
+                    "trade_from": "WAP,WAP",
+                    "receiver_district": "宝安区",
+                    "receiver_town": "莘庄镇",
+                    "has_yfx": false,
+                    "pic_path": "https://img.alicdn.com/bao/uploaded/i2/2468456228/O1CN015n7z1Z1vsTjiMQMlL_!!2468456228.jpg",
+                    "receiver_mobile": "***********",
+                    "is_wt": false,
+                    "seller_flag": 0,
+                    "buyer_nick": "林**",
+                    "service_type": "",
+                    "new_presell": false,
+                    "is_part_consign": false,
+                    "is_force_wlb": false,
+                    "receiver_address": "莘*镇**路***号大虹桥国**楼上海伯俊软件科技**公司",
+                    "seller_nick": "oppo官方旗舰店"
+                }
+            }
+        },
+        "jdp_modified": 1742526386000,
+        "tid": 888246666621927407,
+        "status": "WAIT_SELLER_SEND_GOODS"
+    }
+]

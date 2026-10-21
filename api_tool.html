@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O2O API 测试工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title .icon {
+            width: 24px;
+            height: 24px;
+            background: #667eea;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            min-height: 300px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .headers-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .headers-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .header-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.9rem;
+        }
+
+        .header-item:last-child {
+            border-bottom: none;
+        }
+
+        .header-item .key {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .header-item .value {
+            color: #666;
+            font-family: monospace;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #555;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .response-area {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+            min-height: 200px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .response-area .key {
+            color: #9cdcfe;
+        }
+
+        .response-area .string {
+            color: #ce9178;
+        }
+
+        .response-area .number {
+            color: #b5cea8;
+        }
+
+        .response-area .boolean {
+            color: #569cd6;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sample-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .sample-btn {
+            padding: 8px 16px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #bbdefb;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .sample-btn:hover {
+            background: #1976d2;
+            color: white;
+        }
+
+        .env-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .url-display {
+            background: #f5f5f5;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #333;
+            margin-bottom: 20px;
+            word-break: break-all;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>O2O API 测试工具</h1>
+            <p>ttPosOrderSyncSave 接口可视化测试平台</p>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                <div class="icon">📡</div>
+                接口信息
+            </div>
+            <div class="form-group">
+                <label>目标环境</label>
+                <select id="targetEnv" class="env-select" onchange="updateTargetUrl()">
+                    <option value="s4">S4地址 - https://o2ohub-dev.vfc.com:1443/</option>
+                    <option value="pre">预发地址 - https://o2ohub-dev.vfc.com/</option>
+                </select>
+            </div>
+            <div class="url-display" id="targetUrlDisplay">
+                POST https://o2ohub-dev.vfc.com:1443/api/ip/v1.0/ttPosOrderSyncSave
+            </div>
+            <div class="headers-info">
+                <h3>请求头 (Headers)</h3>
+                <div class="header-item">
+                    <span class="key">reference-id</span>
+                    <span class="value">1</span>
+                </div>
+                <div class="header-item">
+                    <span class="key">brand-code</span>
+                    <span class="value">VAN</span>
+                </div>
+                <div class="header-item">
+                    <span class="key">region</span>
+                    <span class="value">KR</span>
+                </div>
+                <div class="header-item">
+                    <span class="key">r3-api-token</span>
+                    <span class="value">[自动获取]</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                <div class="icon">📝</div>
+                请求体 (Request Body)
+            </div>
+            
+            <div class="sample-buttons">
+                <button class="sample-btn" onclick="loadSample(1)">样例1 - 新单号</button>
+                <button class="sample-btn" onclick="loadSample(2)">样例2 - 新单号</button>
+                <button class="sample-btn" onclick="clearBody()">清空</button>
+            </div>
+
+            <div class="form-group">
+                <label>JSON 请求体</label>
+                <textarea id="requestBody" placeholder="请输入 JSON 格式的请求体..."></textarea>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="sendRequest()">
+                    <span>🚀</span> 发送请求
+                </button>
+                <button class="btn btn-secondary" onclick="formatJson()">
+                    <span>✨</span> 格式化 JSON
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                <div class="icon">📤</div>
+                响应结果 (Response)
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在发送请求，请稍候...</p>
+            </div>
+
+            <div id="responseContainer">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p>点击"发送请求"按钮查看响应结果</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const environments = {
+            s4: {
+                name: 'S4地址',
+                baseUrl: 'https://o2ohub-dev.vfc.com:1443'
+            },
+            pre: {
+                name: '预发地址',
+                baseUrl: 'https://o2ohub-dev.vfc.com'
+            }
+        };
+
+        function updateTargetUrl() {
+            const envKey = document.getElementById('targetEnv').value;
+            const env = environments[envKey] || environments.s4;
+            document.getElementById('targetUrlDisplay').textContent = `POST ${env.baseUrl}/api/ip/v1.0/ttPosOrderSyncSave`;
+        }
+
+        // 样例数据
+        const samples = {
+            1: {
+                "o2oSalesDtl": [{
+                    "amtSold": 28980,
+                    "itemlotnum": "*",
+                    "plu": "VN000EE3W00106500M",
+                    "qty": 1,
+                    "salesLineno": 1
+                }],
+                "o2oSalesHdr": {
+                    "docNum": "S0926260004",
+                    "storeCode": "008146",
+                    "tillID": "01",
+                    "txDate": "2026-02-26"
+                }
+            },
+            2: {
+                "o2oSalesDtl": [{
+                    "amtSold": 28980,
+                    "itemlotnum": "*",
+                    "plu": "VN000EE3W00106500M",
+                    "qty": 1,
+                    "salesLineno": 1
+                },{
+                    "amtSold": 28981,
+                    "itemlotnum": "*",
+                    "plu": "VN000001Y7X1032REG",
+                    "qty": 1,
+                    "salesLineno": 1
+                }],
+                "o2oSalesHdr": {
+                    "docNum": "S0926260004",
+                    "storeCode": "008146",
+                    "tillID": "01",
+                    "txDate": "2026-02-26"
+                }
+            }
+        };
+
+        function generateDocNum() {
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const ms = String(now.getMilliseconds()).padStart(3, '0');
+            return `S${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${ms}`;
+        }
+
+        function currentDateText() {
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        }
+
+        // 加载样例
+        function loadSample(num) {
+            const sample = JSON.parse(JSON.stringify(samples[num]));
+            sample.o2oSalesHdr.docNum = generateDocNum();
+            sample.o2oSalesHdr.txDate = currentDateText();
+            document.getElementById('requestBody').value = JSON.stringify(sample, null, 4);
+        }
+
+        // 清空请求体
+        function clearBody() {
+            document.getElementById('requestBody').value = '';
+        }
+
+        // 格式化 JSON
+        function formatJson() {
+            const textarea = document.getElementById('requestBody');
+            try {
+                const obj = JSON.parse(textarea.value);
+                textarea.value = JSON.stringify(obj, null, 4);
+            } catch (e) {
+                alert('JSON 格式错误: ' + e.message);
+            }
+        }
+
+        // 语法高亮
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, undefined, 4);
+            }
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // 发送请求
+        async function sendRequest() {
+            const bodyText = document.getElementById('requestBody').value;
+            const env = document.getElementById('targetEnv').value;
+            
+            if (!bodyText.trim()) {
+                alert('请输入请求体内容');
+                return;
+            }
+
+            let body;
+            try {
+                body = JSON.parse(bodyText);
+            } catch (e) {
+                alert('JSON 格式错误: ' + e.message);
+                return;
+            }
+
+            // 显示加载状态
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('responseContainer').innerHTML = '';
+
+            try {
+                const response = await fetch('/api/send-request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ body: body, env: env })
+                });
+
+                const result = await response.json();
+
+                // 隐藏加载状态
+                document.getElementById('loading').classList.remove('active');
+
+                // 显示结果
+                let html = '';
+                
+                if (result.success) {
+                    html += `<span class="status-badge status-success">✓ 请求成功 (HTTP ${result.status_code})</span>`;
+                } else {
+                    html += `<span class="status-badge status-error">✗ 请求失败</span>`;
+                    if (result.message) {
+                        html += `<p style="color: #721c24; margin-bottom: 15px;">错误信息: ${result.message}</p>`;
+                    }
+                }
+
+                if (result.target_url) {
+                    html += `<div style="margin: 10px 0 15px; padding: 10px; background: #eef0fb; border-radius: 6px; font-size: 0.9rem; color: #333; word-break: break-all;">
+                        <strong>目标环境:</strong> ${result.target_env || ''}<br>
+                        <strong>请求地址:</strong> ${result.target_url}
+                    </div>`;
+                }
+
+                html += '<div class="response-area">';
+                if (result.response) {
+                    html += syntaxHighlight(result.response);
+                }
+                html += '</div>';
+
+                if (result.token_used) {
+                    html += `<div style="margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 6px; font-size: 0.85rem; color: #666;">
+                        <strong>使用的 Token:</strong> ${result.token_used}
+                    </div>`;
+                }
+
+                document.getElementById('responseContainer').innerHTML = html;
+
+            } catch (error) {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('responseContainer').innerHTML = `
+                    <span class="status-badge status-error">✗ 网络错误</span>
+                    <div class="response-area" style="color: #721c24;">
+                        无法连接到服务器，请确保后端服务已启动。<br>
+                        错误信息: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载时默认加载样例1
+        window.onload = function() {
+            updateTargetUrl();
+            loadSample(1);
+        };
+    </script>
+</body>
+</html>

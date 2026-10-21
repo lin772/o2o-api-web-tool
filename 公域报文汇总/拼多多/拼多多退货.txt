@@ -1,0 +1,31 @@
+{
+ "message_origin": "mock","sellernick": "OPPO官方旗舰店",
+ "data": [{
+  "order_no": "277901-971372863846699",
+  "return_reason": "不想要了",
+  "refund_type": 2,
+  "logistics_no": "",
+  "created": "2026-03-21 16:00:36",
+  "platform_refund_status": "2",
+  "item_num": 1,
+  "buyer_remark": "。",
+  "return_no": "16006191557456",
+  "return_status": 2,
+  "modified": "2026-03-21 16:00:36",
+  "refund_amount": 0,
+  "speed_refund_flag": 0,
+  "items": [{
+   "productcode": "849749389855",
+   "quantity": 1,
+   "return_no": "16006191557456",
+   "return_quantity": 1,
+   "outer_goods_id": "",
+   "price": 0,
+   "sku_id": "1812519762427",
+   "product_code": "849749389855",
+   "sku": "110010131610",
+   "title": "OPPO Enco Air4入耳式长续航双麦AI降噪耳机 适用一加小米华为"
+  }]
+ }],
+ "platform": "27"
+}

@@ -1,0 +1,35 @@
+{
+	"message_origin": "mock",
+	"sellernick": "OPPO商城",
+	"data": [
+		{
+			"order_no": "3736709717148195328",
+			"return_reason": "不想要了",
+			"refund_type": 2,
+			"logistics_no": "",
+			"created": "2026-05-29 22:02:19",
+			"item_refund_amount": 4799.0,
+			"sub_order_id": "37367097171481953284892936683",
+			"platform_refund_status": "USER_WAIT_RETURN",
+			"good_status": 0,
+			"buyer_nick": "osM395NozILWu1ZZ0p3fdt70EBfs",
+			"return_no": "2000003510873287",
+			"complete_time": "1970-01-01 08:00:00",
+			"company_name": "",
+			"return_status": 2,
+			"modified": "2026-05-29 22:02:20",
+			"refund_amount": 4799.0,
+			"items": [
+				{
+					"productcode": "10000346250583",
+					"return_no": "2000003510873287",
+					"return_quantity": 1,
+					"sku_id": "4892936683",
+					"product_code": "10000346250583",
+					"sub_order_id": "37367097171481953284892936683"
+				}
+			]
+		}
+	],
+	"platform": "243"
+}

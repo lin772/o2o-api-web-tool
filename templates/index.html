@@ -1,0 +1,2859 @@
+{# 造数助手前端骨架，二期由后端注入 template_list 等变量 #}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>造数助手 - 订单复制 / 公域平台正向造单</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --topbar-bg: #1e4b8f;
+            --sidebar-bg: #263238;
+            --sidebar-text: #b7c0c9;
+            --sidebar-active-bg: #1e4b8f;
+            --border: #dcdfe6;
+            --border-soft: #eef0f3;
+            --text: #303133;
+            --text-dim: #555861;
+            --text-mute: #909399;
+            --accent: #1e4b8f;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --green: #16a34a;
+            --green-hover: #15803d;
+            --red: #dc3545;
+            --warning: #d69e2e;
+            --info: #3b82f6;
+            --cyan: #0ea5e9;
+            --th-bg: #eef2f8;
+            --mono: 'Cascadia Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .topbar {
+            height: 48px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px;
+            background: var(--topbar-bg); border-bottom: 1px solid #163a6b;
+            color: #fff; flex-shrink: 0;
+        }
+        .topbar .title { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: #fff; }
+        .topbar .title .accent { color: #a7c8ff; }
+        .topbar .global-env { display: flex; align-items: center; gap: 8px; }
+        .topbar .global-env label { font-size: 12px; color: #d5e2f5; }
+        .topbar .global-env select {
+            height: 30px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px;
+            padding: 0 8px; font-size: 13px; color: #fff; background: rgba(255,255,255,0.12); cursor: pointer;
+        }
+        .topbar .global-env option { color: #303133; }
+        .topbar-right { display: flex; align-items: center; gap: 18px; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-info .user-name { font-size: 13px; color: #d5e2f5; }
+        .user-info .logout-btn {
+            height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px;
+            background: rgba(255,255,255,0.12); color: #fff; font-size: 12px; cursor: pointer;
+        }
+        .user-info .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+        .layout { display: flex; height: calc(100vh - 48px); }
+
+        .sidebar {
+            width: 240px; min-width: 240px; background: var(--sidebar-bg);
+            overflow-y: auto; padding: 12px 8px; flex-shrink: 0;
+        }
+        .nav-header { padding: 8px 12px 6px; }
+        .nav-header .app-title { font-size: 14px; font-weight: 600; color: #fff; }
+        .nav-header .app-subtitle { font-size: 12px; color: var(--sidebar-text); margin-top: 3px; }
+        .nav-divider { height: 1px; background: rgba(255,255,255,0.10); margin: 10px 12px 8px; }
+
+        .nav-item {
+            display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 2px 0;
+            background: transparent; border: none; border-radius: 6px; color: var(--sidebar-text);
+            font-size: 13px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-item.active { background: var(--sidebar-active-bg); color: #fff; font-weight: 600; }
+
+        .main { flex: 1; overflow-y: auto; padding: 16px 20px 32px; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .section {
+            background: var(--card-bg); border: 1px solid var(--border-soft); border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            margin-bottom: 16px; overflow: hidden;
+        }
+        .section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border-bottom: 1px solid var(--border-soft);
+            background: #fbfcfe;
+        }
+        .section-header .section-title { font-size: 14px; font-weight: 600; color: var(--text); }
+        .section-body { padding: 16px; }
+
+        .section-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: flex-start; flex-wrap: wrap; }
+        .section-row .section { flex: 0 0 25%; width: 25%; min-width: 220px; margin-bottom: 0; }
+
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+        .form-row:last-child { margin-bottom: 0; }
+        .form-field { display: flex; flex-direction: column; gap: 6px; }
+        .form-field.grow { flex: 1; min-width: 180px; }
+        .form-field.fixed { flex: 0 0 auto; }
+        /* 标签与控件同行 */
+        .form-row .form-field { flex-direction: row; align-items: center; gap: 8px; }
+        .form-row .form-field label { flex: 0 0 auto; white-space: nowrap; }
+        .form-row .form-field label::after { content: '：'; }
+        .form-row .form-field > input,
+        .form-row .form-field > select,
+        .form-row .form-field > .combo,
+        .form-row .form-field > .sku-slots { flex: 1; min-width: 0; }
+        /* 库存调整：逻辑仓/配销仓/SKU/调整数量 竖向排列 */
+        .form-row.stock-vertical { flex-direction: column; align-items: stretch; }
+        .form-row.stock-vertical .form-field { width: 100%; }
+        /* 一排多字段等宽分列：固定标签宽度，使输入框整体对齐 */
+        .form-row.align-fields .form-field { flex: 1; min-width: 0; }
+        .form-row.align-fields .form-field.fixed { flex: 0 0 auto; }
+        .form-row.align-fields .form-field label { flex: 0 0 72px; width: 72px; }
+        /* 查询条件筛选行 */
+        .filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+        .filter-row input, .filter-row select { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); color: var(--text); font-size: 13px; }
+        .filter-row input { width: 180px; }
+        .filter-row select { min-width: 120px; }
+        /* 逻辑仓可搜索下拉 */
+        .combo { position: relative; width: 100%; }
+        .combo-input { width: 100%; }
+        .combo-list {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            max-height: 260px; overflow-y: auto; background: var(--card-bg);
+            border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            z-index: 50; display: none;
+        }
+        .combo-list.open { display: block; }
+        .combo-item { padding: 8px 12px; font-size: 13px; color: var(--text); cursor: pointer; }
+        .combo-item:hover { background: rgba(37, 99, 235, 0.08); }
+        .combo-empty { padding: 8px 12px; font-size: 12px; color: var(--text-mute); }
+        .form-field label { font-size: 12px; color: var(--text-mute); }
+
+        .form-field input, .form-field select, .form-field textarea {
+            background: #fff; border: 1px solid var(--border); border-radius: 6px;
+            color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease; outline: none;
+        }
+        .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+        }
+        .form-field input, .form-field select { height: 34px; }
+        .form-field select { cursor: pointer; }
+        .form-field input::placeholder, .form-field textarea::placeholder { color: #b0b6c0; }
+
+        .json-editor {
+            width: 100%; min-height: 260px; resize: vertical; background: #fff;
+            border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+            font-family: var(--mono); font-size: 13px; line-height: 1.6; padding: 12px;
+            white-space: pre; overflow: auto;
+        }
+        .json-editor:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.12); outline: none; }
+        .json-editor.small { min-height: 120px; }
+
+        .response-area {
+            width: 100%; min-height: 140px; resize: vertical; background: #fff;
+            border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+            font-family: var(--mono); font-size: 13px; line-height: 1.6; padding: 12px;
+            white-space: pre-wrap; word-break: break-all; overflow: auto;
+        }
+        .response-area.header-area { min-height: 54px; }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            height: 34px; padding: 0 18px; border: none; border-radius: 6px;
+            font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; white-space: nowrap;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-info { background: var(--green); color: #fff; }
+        .btn-info:hover { background: var(--green-hover); }
+        .btn-cyan { background: var(--cyan); color: #fff; }
+        .btn-cyan:hover { filter: brightness(1.05); }
+        .btn-warning { background: var(--green); color: #fff; }
+        .btn-warning:hover { background: var(--green-hover); }
+        .btn-danger { background: var(--red); color: #fff; }
+        .btn-danger:hover { filter: brightness(0.92); }
+        .btn-secondary { background: #e9edf2; color: var(--text-dim); }
+        .btn-secondary:hover { background: #dfe4ea; }
+        .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid #c8cdd4; }
+        .btn-ghost:hover { color: var(--text); border-color: #a9b0ba; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+        .order-no-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+        .order-no-row .order-input { flex: 1; min-width: 200px; }
+        .readonly-input { background: #f4f6f9 !important; }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 11px;
+            border-radius: 4px; font-size: 12px; font-weight: 600;
+        }
+        .status-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+        .status-pending { background: #f0f1f3; color: #555861; }
+        .status-loading { background: #fdf6ec; color: var(--warning); }
+        .status-success { background: #e8f5e9; color: var(--green); }
+        .status-error { background: #fdecea; color: var(--red); }
+
+        .status-wrap { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+        .status-wrap .status-label { font-size: 13px; color: var(--text-mute); }
+
+        .tip { font-size: 12px; color: var(--text-mute); margin-bottom: 12px; line-height: 1.6; }
+
+        .sku-slots { margin: 2px 0 12px; }
+        .sku-slots-title { font-size: 12px; color: var(--text-mute); margin-bottom: 6px; }
+        .sku-slot {
+            display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+            border: 1px solid var(--border-soft); border-radius: 6px; margin-bottom: 6px;
+            font-size: 12px; font-family: var(--mono); white-space: nowrap; overflow: hidden;
+        }
+        .sku-slot .sku-slot-no { color: var(--primary); font-weight: 600; flex-shrink: 0; }
+        .sku-slot .sku-slot-val { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; }
+        .sku-slot.empty { color: var(--text-mute); font-family: inherit; }
+        .sku-slot .sku-input {
+            flex: 1; min-width: 0; height: 30px; padding: 4px 8px;
+            border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+            font-family: var(--mono); color: var(--text); outline: none;
+        }
+        .sku-slot .sku-input:focus { border-color: var(--primary); }
+
+        details.collapsible { border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 16px; background: var(--card-bg); }
+        details.collapsible summary {
+            cursor: pointer; padding: 12px 16px; font-size: 14px; font-weight: 600; list-style: none;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        details.collapsible summary::-webkit-details-marker { display: none; }
+        details.collapsible .section-body { padding: 16px; }
+
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th, .data-table td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; }
+        .data-table th { background: var(--th-bg); font-weight: 600; color: var(--text-dim); }
+        .data-table tbody tr:hover { background: #f6f8fc; }
+        .table-empty { color: var(--text-mute); text-align: center; padding: 24px 0; font-size: 13px; }
+
+        a.nav-item { text-decoration: none; }
+
+        .kv-block { margin-top: 14px; }
+        .kv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .kv-head label { font-size: 12px; color: var(--text-mute); }
+        .kv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .kv-table th, .kv-table td { border: 1px solid var(--border); padding: 4px; text-align: left; }
+        .kv-table th { background: var(--th-bg); font-weight: 600; color: var(--text-dim); }
+        .kv-table td:last-child { width: 64px; }
+        .kv-table input { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; font-size: 12px; }
+
+        .response-code {
+            width: 100%; min-height: 120px; max-height: 400px; overflow: auto;
+            background: #f7f9fc; border: 1px solid var(--border); border-radius: 6px;
+            padding: 12px; font-family: var(--mono); font-size: 13px; line-height: 1.6;
+            white-space: pre-wrap; word-break: break-all; margin: 0;
+        }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            padding: 10px 16px; border-radius: 6px; color: #fff; font-size: 13px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); max-width: 360px; word-break: break-all;
+            opacity: 0; transform: translateY(-10px); transition: all 0.3s ease;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background: var(--green); }
+        .toast-error { background: var(--red); }
+        .toast-warning { background: var(--warning); }
+        .toast-info { background: var(--info); }
+
+        /* 可折叠父菜单 */
+        .nav-group { margin: 2px 0; }
+        .nav-parent { display: flex; align-items: center; justify-content: space-between; }
+        .nav-arrow { font-size: 12px; transition: transform 0.2s ease; }
+        .nav-group.collapsed .nav-arrow { transform: rotate(-90deg); }
+        .nav-group.collapsed .nav-sub { display: none; }
+        .nav-sub { overflow: hidden; }
+        .nav-sub-item { padding-left: 32px; font-size: 12px; }
+
+        /* 弹窗 */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; z-index: 10000;
+            background: rgba(0,0,0,0.4); align-items: center; justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: #fff; border-radius: 8px; width: 480px; max-width: calc(100vw - 40px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .modal-sm { width: 360px; }
+        .modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; border-bottom: 1px solid var(--border-soft);
+            font-size: 14px; font-weight: 600; color: var(--text);
+        }
+        .modal-close { background: transparent; border: none; font-size: 20px; line-height: 1; cursor: pointer; color: var(--text-mute); }
+        .modal-close:hover { color: var(--text); }
+        .modal-body { padding: 16px; }
+        .modal-body .form-field { margin-bottom: 12px; }
+        .modal-body .form-field:last-child { margin-bottom: 0; }
+        .modal-footer {
+            display: flex; justify-content: flex-end; gap: 10px;
+            padding: 12px 16px; border-top: 1px solid var(--border-soft);
+        }
+        .confirm-text { font-size: 14px; color: var(--text); line-height: 1.6; padding: 8px 0; }
+
+        /* 历史记录 + 报文主数据（合并为 tab）*/
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .badge-ok { background: #e8f5e9; color: var(--green); }
+        .badge-err { background: #fdecea; color: var(--red); }
+        .badge-mute { background: #f0f0f0; color: #555861; }
+
+        .pager { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+        .pager-info { font-size: 13px; color: var(--text-mute); }
+
+        .table-scroll { overflow-x: auto; }
+
+        .data-table td.mono { font-family: var(--mono); }
+        .data-table .col-check { width: 40px; text-align: center; }
+
+        .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tab {
+            height: 34px; padding: 0 20px; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--card-bg); color: var(--text-dim); font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--primary); color: var(--primary); }
+        .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        .toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+
+        /* ==================== 公域平台正向造单：上下分区布局 ==================== */
+        .panel.order-panel.active {
+            display: flex; flex-direction: column; gap: 12px;
+            min-height: calc(100vh - 96px);
+        }
+        .order-config-region { flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px; }
+        .order-result-region { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+        .order-result-region .result-section { flex: 1 1 auto; display: flex; flex-direction: column; margin-bottom: 0; }
+        .order-result-region .result-body { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+        .order-result-region .json-editor { flex: 1 1 45%; min-height: 200px; }
+        .order-result-region .form-field.result-field { flex: 1 1 45%; min-height: 0; }
+        .order-result-region .response-code { flex: 1 1 auto; min-height: 150px; max-height: none; }
+
+        /* 第2行两卡片并排：订单节点串联 + 店铺档案 */
+        .order-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: stretch; }
+        .order-two-col .section { margin-bottom: 0; }
+
+        /* 紧凑卡片（仅作用于正向造单页）——卡片内边距收紧，但控件保持完整可读、不遮挡文字 */
+        .order-panel .section { margin-bottom: 0; }
+        .order-panel .section-header { padding: 8px 12px; }
+        .order-panel .section-header .section-title { font-size: 13px; }
+        .order-panel .section-body { padding: 10px 12px; }
+        .order-panel .form-row { gap: 8px; margin-bottom: 8px; }
+        .order-panel .form-field input,
+        .order-panel .form-field select { height: 32px; padding: 5px 10px; }
+        .order-panel .btn { height: 32px; padding: 0 14px; font-size: 12px; }
+
+        /* 商品SKU：横向多列并排（一行放多个，不再竖向堆叠） */
+        .order-panel .sku-slots { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 2px 0 6px; }
+        .order-panel .sku-slots-title { flex-basis: 100%; font-size: 12px; color: var(--text-mute); margin-bottom: 2px; }
+        .order-panel .sku-slot { flex: 0 0 auto; margin-bottom: 0; padding: 4px 8px; }
+        .order-panel .sku-slot .sku-input { flex: none; width: 200px; height: 30px; padding: 4px 8px; }
+
+        @media (max-width: 980px) {
+            .order-two-col { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="title">造数助手 <span class="accent">-</span> 订单复制 / 公域平台正向造单</span>
+        <div class="topbar-right">
+            <div class="global-env">
+                <label>环境</label>
+                <select id="global-env">
+                    <option value="TEST" selected>TEST</option>
+                </select>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="user-name">...</span>
+                <button class="logout-btn" id="logout-btn" type="button">退出</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="nav-header">
+                <div class="app-title">WMS / 订单 造数助手</div>
+                <div class="app-subtitle">中间表 · 订单 · 回传</div>
+            </div>
+            <div class="nav-divider"></div>
+            <div class="nav-group collapsed">
+                <button class="nav-item nav-parent" data-parent="basic_config">
+                    <span>基础配置</span><span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-sub">
+                    <button class="nav-item nav-sub-item" data-tab="env_config">环境配置</button>
+                    <button class="nav-item nav-sub-item" data-tab="db_config">数据库配置</button>
+                    <button class="nav-item nav-sub-item" data-tab="xxl_config">XXL-Job配置</button>
+                </div>
+            </div>
+            <div class="nav-group collapsed">
+                <button class="nav-item nav-parent" data-parent="system">
+                    <span>系统管理</span><span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-sub">
+                    <button class="nav-item nav-sub-item" data-href="/perm/user" data-menu="perm_user">用户管理</button>
+                    <button class="nav-item nav-sub-item" data-href="/perm/role" data-menu="perm_role">角色管理</button>
+                    <button class="nav-item nav-sub-item" data-href="/perm/menu" data-menu="perm_menu">菜单权限</button>
+                    <button class="nav-item nav-sub-item" data-href="/perm/data" data-menu="perm_data">数据权限</button>
+                </div>
+            </div>
+            <button class="nav-item" data-tab="message_data">报文主数据</button>
+            <button class="nav-item" data-tab="stock_adjust">调整库存</button>
+            <button class="nav-item" data-tab="platform_order">公域平台正向造单</button>
+            <button class="nav-item" data-tab="reverse_order">公域平台逆向造单</button>
+            <button class="nav-item" data-tab="order_copy">平台订单中间表复制</button>
+            <button class="nav-item" data-tab="history">历史记录</button>
+        </aside>
+
+        <main class="main">
+
+
+
+            <!-- ==================== 平台订单中间表复制 ==================== -->
+            <section class="panel" data-panel="order_copy">
+                <div class="section">
+                    <div class="section-body">
+                        <div class="form-row align-fields">
+                            <div class="form-field"><label>平台订单</label><input type="text" placeholder="请输入平台订单" /></div>
+                            <div class="form-field"><label>店铺名称</label><select data-shop-select><option value="">请选择店铺</option></select></div>
+                            <div class="form-field"><label>商品SKU</label><input type="text" placeholder="不填则使用原订单 SKU" /></div>
+                            <div class="form-field fixed"><button class="btn btn-info" onclick="loadShops(this)">刷新店铺</button></div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="simulateSend(this)">复制订单</button>
+                            <button class="btn btn-secondary" onclick="clearResult(this)">清空结果</button>
+                        </div>
+                        <div class="form-row" style="margin-top:16px;">
+                            <div class="form-field grow"><label>新订单 TID</label><input type="text" class="readonly-input" readonly value="-" /></div>
+                        </div>
+                        <div class="status-wrap"><span class="status-label">状态</span><span class="status-badge status-pending" data-status>待执行</span></div>
+                        <div class="form-field" style="margin-top:12px;"><label>操作结果</label><textarea class="response-area" readonly></textarea></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 调整库存 ==================== -->
+            <section class="panel" data-panel="stock_adjust">
+                <div class="section">
+                    <div class="section-body">
+                        <div class="form-row stock-vertical">
+                            <div class="form-field">
+                                <label>逻辑仓</label>
+                                <div class="combo" data-logic-combo>
+                                    <input type="text" class="combo-input" data-logic-search placeholder="输入编码/名称搜索逻辑仓" autocomplete="off" onfocus="onLogicStoreFocus(this)" oninput="onLogicStoreInput(this)" />
+                                    <input type="hidden" data-logic-store />
+                                    <div class="combo-list" data-logic-list></div>
+                                </div>
+                            </div>
+                            <div class="form-field"><label>配销仓</label><select data-sa-store><option value="">请选择配销仓</option></select></div>
+                            <div class="form-field"><label>聚合仓</label><span class="status-label" data-share-store>聚合仓</span></div>
+                            <div class="form-field"><label>SKU（手工录入 SKU 编码）</label><input type="text" data-sku placeholder="手工录入 SKU 编码" /></div>
+                            <div class="form-field"><label>调整数量</label><input type="text" data-qty value="1" /></div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="execStockAdjust(this)">执行调整库存</button>
+                            <button class="btn btn-secondary" onclick="clearResult(this)">清空结果</button>
+                        </div>
+                        <div class="status-wrap"><span class="status-label">状态</span><span class="status-badge status-pending" data-status>待执行</span></div>
+                        <div class="form-field" style="margin-top:12px;"><label>操作结果</label><textarea class="response-area" readonly></textarea></div>
+                    </div>
+                </div>
+            </section>
+
+
+
+            <!-- ==================== 公域平台正向造单 ==================== -->
+            <section class="panel order-panel" data-panel="platform_order">
+                <!-- 上半区：配置表单区 -->
+                <div class="order-config-region">
+                    <div class="section">
+                        <div class="section-body">
+                            <div class="form-row align-fields">
+                                <div class="form-field"><label>平台</label><select data-platform><option value="">请选择平台</option></select></div>
+                                <div class="form-field"><label>场景报文</label><select data-scenario><option value="">请选择场景报文</option></select></div>
+                                <div class="form-field">
+                                    <label>卖家昵称</label>
+                                    <div style="display:flex; gap:8px; flex:1; min-width:0;">
+                                        <input type="text" data-forward-seller-nick placeholder="平台店铺档案的卖家昵称" style="flex:1; min-width:0;" />
+                                        <button type="button" class="btn btn-info" onclick="replaceSellerNick(this)" style="flex:0 0 auto;">替换</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row align-fields">
+                                <div class="form-field"><label>节点串联</label><select data-chain></select></div>
+                            </div>
+                            <div class="form-row" style="margin-bottom:0;">
+                                <div class="form-field grow"><div class="sku-slots" data-sku-slots></div></div>
+                                <div class="form-field fixed"><button class="btn btn-info" onclick="replaceSkuValues(this)">替换</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 下半区：报文预览 + 执行结果 -->
+                <div class="order-result-region">
+                    <div class="section result-section">
+                        <div class="section-header"><span class="section-title">报文预览（可手工修改后再点「生成订单」）</span></div>
+                        <div class="section-body result-body">
+                            <textarea class="json-editor small"></textarea>
+                            <div class="btn-group">
+                                <button class="btn btn-warning" data-preview onclick="platformOrderPreview(this)">仅预览</button>
+                                <button class="btn btn-primary" onclick="platformOrderGenerate(this)">生成订单</button>
+                                <button class="btn btn-danger" data-abort disabled onclick="platformOrderAbort(this)">终止</button>
+                            </div>
+                            <div class="status-wrap"><span class="status-label">状态</span><span class="status-badge status-pending" data-status>待执行</span><span class="status-label" data-cost></span></div>
+                            <div class="form-field result-field" style="margin-top:12px;">
+                                <label>执行结果</label>
+                                <pre class="response-code"><code class="language-json" data-response>—</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 公域平台逆向造单 ==================== -->
+            <section class="panel" data-panel="reverse_order">
+                <div class="section">
+                    <div class="section-body">
+                        <div class="form-row align-fields" style="margin-bottom:0;">
+                            <div class="form-field"><label>平台</label><select data-platform><option value="">请选择平台</option></select></div>
+                            <div class="form-field"><label>场景报文</label><select data-scenario><option value="">请选择场景报文</option></select></div>
+                            <div class="form-field"><label>平台单号</label><input type="text" data-tid placeholder="请输入平台单号" /></div>
+                            <div class="form-field fixed"><button class="btn btn-info" onclick="placeholderAlert('替换平台单号')">替换</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-header"><span class="section-title">报文预览（明细字段已从 oc_b_order / oc_b_order_item 回填）</span></div>
+                    <div class="section-body">
+                        <textarea class="json-editor small"></textarea>
+                        <div class="btn-group">
+                            <button class="btn btn-warning" data-preview onclick="reverseOrderPreview(this)">仅预览</button>
+                            <button class="btn btn-primary" onclick="reverseOrderGenerate(this)">生成售后申请</button>
+                        </div>
+                        <div class="status-wrap"><span class="status-label">状态</span><span class="status-badge status-pending" data-status>待执行</span><span class="status-label" data-cost></span></div>
+                        <div class="form-field" style="margin-top:12px;">
+                            <label>响应结果</label>
+                            <pre class="response-code"><code class="language-json" data-response>—</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 基础配置 · 环境配置 ==================== -->
+            <section class="panel" data-panel="env_config">
+                <div class="section">
+                    <div class="section-header">
+                        <span class="section-title">环境配置</span>
+                        <button class="btn btn-primary" onclick="openEnvModal()">新增</button>
+                    </div>
+                    <div class="section-body">
+                        <div class="filter-row">
+                            <input type="text" id="env-filter-project" placeholder="项目名称" />
+                            <input type="text" id="env-filter-env" placeholder="环境" />
+                            <button class="btn btn-primary" onclick="applyEnvFilter()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetEnvFilter()">重置</button>
+                        </div>
+                        <table class="data-table">
+                            <thead><tr><th>项目名称</th><th>环境</th><th>页面URL</th><th>账号</th><th>密码</th><th>操作</th></tr></thead>
+                            <tbody data-env-config-list><tr><td colspan="6" class="table-empty">暂无数据</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 基础配置 · 数据库配置 ==================== -->
+            <section class="panel" data-panel="db_config">
+                <div class="section">
+                    <div class="section-header">
+                        <span class="section-title">数据库配置</span>
+                        <button class="btn btn-primary" onclick="openDbModal()">新增</button>
+                    </div>
+                    <div class="section-body">
+                        <div class="filter-row">
+                            <input type="text" id="db-filter-project" placeholder="项目名称" />
+                            <input type="text" id="db-filter-env" placeholder="环境" />
+                            <input type="text" id="db-filter-name" placeholder="数据库" />
+                            <button class="btn btn-primary" onclick="applyDbFilter()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetDbFilter()">重置</button>
+                        </div>
+                        <table class="data-table">
+                            <thead><tr><th>项目名称</th><th>环境</th><th>数据库地址</th><th>端口</th><th>数据库</th><th>用户名</th><th>密码</th><th>操作</th></tr></thead>
+                            <tbody data-db-config-list><tr><td colspan="8" class="table-empty">暂无数据</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 基础配置 · XXL-Job配置 ==================== -->
+            <section class="panel" data-panel="xxl_config">
+                <div class="section">
+                    <div class="section-header">
+                        <span class="section-title">XXL-Job配置</span>
+                        <button class="btn btn-primary" onclick="openXxlModal()">新增</button>
+                    </div>
+                    <div class="section-body">
+                        <div class="filter-row">
+                            <input type="text" id="xxl-filter-project" placeholder="项目名称" />
+                            <input type="text" id="xxl-filter-env" placeholder="环境" />
+                            <button class="btn btn-primary" onclick="applyXxlFilter()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetXxlFilter()">重置</button>
+                        </div>
+                        <table class="data-table">
+                            <thead><tr><th>项目名称</th><th>环境</th><th>地址</th><th>账号</th><th>密码</th><th>操作</th></tr></thead>
+                            <tbody data-xxl-config-list><tr><td colspan="6" class="table-empty">暂无数据</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 历史记录 ==================== -->
+            <section class="panel" data-panel="history">
+                <div class="section">
+                    <div class="section-header"><span class="section-title">调用历史记录</span></div>
+                    <div class="section-body">
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>时间</th>
+                                        <th>方法</th>
+                                        <th>请求 URL</th>
+                                        <th>状态码</th>
+                                        <th>耗时</th>
+                                        <th>结果</th>
+                                        <th style="width:80px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-body"><tr><td colspan="8" class="table-empty">加载中…</td></tr></tbody>
+                            </table>
+                        </div>
+                        <div class="pager">
+                            <button class="btn btn-secondary" id="btn-prev" onclick="changeHistoryPage(-1)">上一页</button>
+                            <button class="btn btn-secondary" id="btn-next" onclick="changeHistoryPage(1)">下一页</button>
+                            <span class="pager-info" id="page-info"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== 报文主数据 ==================== -->
+            <section class="panel" data-panel="message_data">
+                <div class="section">
+                    <div class="section-header"><span class="section-title">报文主数据</span></div>
+                    <div class="section-body">
+                        <div class="tabs" id="platform-tabs"></div>
+                        <div class="toolbar">
+                            <button class="btn btn-primary" onclick="openMessageAddModal()">新增</button>
+                            <button class="btn btn-info" onclick="openMessageEditModal()">修改</button>
+                            <button class="btn btn-danger" onclick="openMessageDeleteConfirm()">删除</button>
+                        </div>
+                        <div class="filter-row">
+                            <input type="text" id="msg-filter-name" placeholder="报文名称" />
+                            <select id="msg-filter-type">
+                                <option value="">全部类型</option>
+                                <option value="正向">正向</option>
+                                <option value="逆向">逆向</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="applyMessageFilter()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetMessageFilter()">重置</button>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-check"><input type="checkbox" id="check-all" onchange="toggleAllMessages(this)"></th>
+                                        <th>ID</th>
+                                        <th>报文名称</th>
+                                        <th>平台</th>
+                                        <th>类型</th>
+                                        <th>创建时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="message-body"><tr><td colspan="6" class="table-empty">加载中…</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 环境配置弹窗 -->
+    <div class="modal-overlay" id="env-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="env-modal-title">新增环境配置</span>
+                <button class="modal-close" onclick="closeEnvModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="env-id">
+                <div class="form-field"><label>项目名称</label><input id="env-project" type="text" placeholder="请输入项目名称"></div>
+                <div class="form-field"><label>环境</label><input id="env-env" type="text" placeholder="请输入环境"></div>
+                <div class="form-field"><label>页面URL</label><input id="env-url" type="text" placeholder="请输入页面URL"></div>
+                <div class="form-field"><label>账号</label><input id="env-account" type="text" placeholder="请输入账号"></div>
+                <div class="form-field"><label>密码</label><input id="env-password" type="password" placeholder="请输入密码"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEnvModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveEnvConfig()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据库配置弹窗 -->
+    <div class="modal-overlay" id="db-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="db-modal-title">新增数据库配置</span>
+                <button class="modal-close" onclick="closeDbModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="db-id">
+                <div class="form-field"><label>项目名称</label><select id="db-project" onchange="filterDbEnvs()"><option value="">请选择项目</option></select></div>
+                <div class="form-field"><label>环境</label><select id="db-env"><option value="">请选择环境</option></select></div>
+                <div class="form-field"><label>数据库地址</label><input id="db-address" type="text" placeholder="请输入数据库地址"></div>
+                <div class="form-field"><label>端口</label><input id="db-port" type="text" placeholder="请输入端口"></div>
+                <div class="form-field"><label>数据库</label><input id="db-name" type="text" placeholder="请输入数据库名"></div>
+                <div class="form-field"><label>用户名</label><input id="db-username" type="text" placeholder="请输入用户名"></div>
+                <div class="form-field"><label>密码</label><input id="db-password" type="password" placeholder="请输入密码"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDbModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveDbConfig()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- XXL-Job配置弹窗 -->
+    <div class="modal-overlay" id="xxl-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="xxl-modal-title">新增XXL-Job配置</span>
+                <button class="modal-close" onclick="closeXxlModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="xxl-id">
+                <div class="form-field"><label>项目名称</label><select id="xxl-project" onchange="filterXxlEnvs()"><option value="">请选择项目</option></select></div>
+                <div class="form-field"><label>环境</label><select id="xxl-env"><option value="">请选择环境</option></select></div>
+                <div class="form-field"><label>地址</label><input id="xxl-address" type="text" placeholder="请输入地址"></div>
+                <div class="form-field"><label>账号</label><input id="xxl-account" type="text" placeholder="请输入账号"></div>
+                <div class="form-field"><label>密码</label><input id="xxl-password" type="password" placeholder="请输入密码"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeXxlModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveXxlConfig()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除二次确认弹窗 -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal modal-sm">
+            <div class="modal-body">
+                <div class="confirm-text" id="confirm-message"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfirm()">取消</button>
+                <button class="btn btn-danger" onclick="confirmOk()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 报文主数据：新增/修改弹窗 -->
+    <div class="modal-overlay" id="message-edit-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="message-edit-title">新增报文</span>
+                <button class="modal-close" onclick="closeMessageEditModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field"><label>平台（必填）</label><select id="message-platform"><option value="淘宝">淘宝</option><option value="京东">京东</option><option value="抖音">抖音</option><option value="拼多多">拼多多</option><option value="快手">快手</option><option value="小红书">小红书</option><option value="视频号">视频号</option><option value="通用">通用</option></select></div>
+                <div class="form-field"><label>报文名称（必填）</label><input type="text" id="message-name" placeholder="请输入报文名称"></div>
+                <div class="form-field"><label>类型（必填）</label><select id="message-type"><option value="正向">正向</option><option value="逆向">逆向</option></select></div>
+                <div class="form-field"><label>报文详情（必填，JSON 报文）</label><textarea class="json-editor" style="min-height:280px;" id="message-detail" placeholder="请输入 JSON 报文"></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeMessageEditModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveMessage()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // =====================================================================
+        // 前端交互：报文模板切换 / JSON 格式化 / 真实发送请求 / Key-Value 录入
+        // =====================================================================
+
+        // ---------- 左侧导航：切换右侧面板 ----------
+        const navItems = document.querySelectorAll('.nav-item');
+        const panels = document.querySelectorAll('.panel');
+
+        
+
+        function switchPanel(itemId) {
+            navItems.forEach(function (n) { n.classList.toggle('active', n.dataset.tab === itemId); });
+            panels.forEach(function (p) { p.classList.toggle('active', p.dataset.panel === itemId); });
+        }
+
+        // ---------- 订单节点串联：按平台渲染（默认其他平台）----------
+        const CHAIN_LISTS = {
+            '淘宝': ['淘宝订单接口', '淘宝订单接口-待寻源', '淘宝订单接口-待寻源-待审核', '淘宝订单接口-待寻源-待审核-配货中', '淘宝订单接口-待寻源-待审核-配货中-仓库发货', '淘宝订单接口-待寻源-待审核-配货中-仓库发货-平台发货'],
+            '京东': ['京东订单接口', '京东订单接口-待寻源', '京东订单接口-待寻源-待审核', '京东订单接口-待寻源-待审核-配货中', '京东订单接口-待寻源-待审核-配货中-仓库发货', '京东订单接口-待寻源-待审核-配货中-仓库发货-平台发货'],
+            '其他': ['平台订单报文', '平台订单报文-平台订单', '平台订单报文-平台订单-待寻源', '平台订单报文-平台订单-待寻源-待审核', '平台订单报文-平台订单-待寻源-待审核-配货中', '平台订单报文-平台订单-待寻源-待审核-配货中-仓库发货', '平台订单报文-平台订单-待寻源-待审核-配货中-仓库发货-平台发货']
+        };
+
+        function chainListFor(platform) {
+            if (platform === '淘宝') { return CHAIN_LISTS['淘宝']; }
+            if (platform === '京东') { return CHAIN_LISTS['京东']; }
+            return CHAIN_LISTS['其他'];
+        }
+
+        function renderChainOptions(panel, platform) {
+            const chainSel = panel.querySelector('[data-chain]');
+            if (!chainSel) { return; }
+            const list = chainListFor(platform);
+            chainSel.innerHTML = '';
+            list.forEach(function (name) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                chainSel.appendChild(opt);
+            });
+        }
+
+        // ---------- 平台 / 场景报文联动（文件模板数据源）----------
+        function initPlatformSelects() {
+            const selects = document.querySelectorAll('[data-platform]');
+            selects.forEach(function (sel) {
+                sel.addEventListener('change', function () {
+                    loadScenarios(sel);
+                    renderChainOptions(sel.closest('.panel'), sel.value);
+                });
+            });
+            // 默认展示其他平台的流程节点
+            document.querySelectorAll('[data-chain]').forEach(function (chainSel) {
+                renderChainOptions(chainSel.closest('.panel'), '');
+            });
+
+            fetch('/api/platforms')
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('加载平台失败：' + (data.error_msg || '未知错误'), 'warning');
+                        return;
+                    }
+                    const platforms = data.platforms || [];
+                    selects.forEach(function (sel) {
+                        sel.innerHTML = '<option value="">请选择平台</option>';
+                        platforms.forEach(function (p) {
+                            const opt = document.createElement('option');
+                            opt.value = p;
+                            opt.textContent = p;
+                            sel.appendChild(opt);
+                        });
+                    });
+                })
+                .catch(function () { showToast('加载平台失败：网络或服务异常', 'error'); });
+        }
+
+        function initScenarioSelects() {
+            document.querySelectorAll('[data-scenario]').forEach(function (sel) {
+                sel.addEventListener('change', function () { onScenarioChange(sel); });
+            });
+        }
+
+        function panelKind(panel) {
+            return (panel.dataset.panel === 'reverse_order') ? 'reverse' : 'forward';
+        }
+
+        function loadScenarios(platformSel) {
+            const panel = platformSel.closest('.panel');
+            const scenarioSel = panel.querySelector('[data-scenario]');
+            const editor = panel.querySelector('.json-editor');
+            scenarioSel.innerHTML = '<option value="">请选择场景报文</option>';
+            if (editor) { editor.value = ''; }
+            renderSkuSlots(panel, '');
+            const platform = platformSel.value;
+            if (!platform) { return; }
+
+            fetch('/api/scenarios?platform=' + encodeURIComponent(platform) + '&kind=' + panelKind(panel))
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast(data.error_msg || '加载场景报文失败', 'warning');
+                        return;
+                    }
+                    (data.scenarios || []).forEach(function (item) {
+                        const opt = document.createElement('option');
+                        opt.value = (typeof item === 'string') ? item : item.value;
+                        opt.textContent = (typeof item === 'string') ? item : item.label;
+                        scenarioSel.appendChild(opt);
+                    });
+                })
+                .catch(function () { showToast('加载场景报文失败', 'error'); });
+        }
+
+        function onScenarioChange(scenarioSel) {
+            const panel = scenarioSel.closest('.panel');
+            const editor = panel.querySelector('.json-editor');
+            if (editor) { editor.value = ''; }
+            renderSkuSlots(panel, '');
+            autoPreviewPanel(panel);
+        }
+
+        function autoPreviewPanel(panel) {
+            const scenario = (panel.querySelector('[data-scenario]') || {}).value || '';
+            if (!scenario) { return; }
+            if (panelKind(panel) === 'reverse') {
+                const tid = (panel.querySelector('[data-tid]') || {}).value || '';
+                if (!tid.trim()) { return; }
+            }
+            const btn = panel.querySelector('[data-preview]');
+            if (btn) { btn.click(); }
+        }
+
+        navItems.forEach(function (item) {
+            item.addEventListener('click', function () {
+                if (item.dataset.parent) {
+                    toggleNavGroup(item.dataset.parent);
+                } else if (item.dataset.href) {
+                    window.location.href = item.dataset.href;
+                } else if (item.dataset.tab) {
+                    switchPanel(item.dataset.tab);
+                }
+            });
+        });
+
+        // 折叠/展开父菜单
+        function toggleNavGroup(parentId) {
+            const parentBtn = document.querySelector('.nav-parent[data-parent="' + parentId + '"]');
+            if (parentBtn) {
+                const group = parentBtn.closest('.nav-group');
+                if (group) { group.classList.toggle('collapsed'); }
+            }
+        }
+
+        // 支持从其它页面通过 #锚点 直达对应面板（如 /#platform_order、/#reverse_order）
+        const validTabs = ['env_config', 'db_config', 'xxl_config', 'order_copy', 'stock_adjust', 'platform_order', 'reverse_order', 'history', 'message_data'];
+        const initialTab = (location.hash || '').replace('#', '');
+        switchPanel(validTabs.indexOf(initialTab) >= 0 ? initialTab : 'order_copy');
+
+        // ---------- Toast 全局提示（替代原生 alert）----------
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) { return; }
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + (type || 'info');
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(function () { toast.classList.add('show'); });
+            setTimeout(function () {
+                toast.classList.remove('show');
+                setTimeout(function () { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // ---------- 全局 fetch 拦截：401 跳登录，403 提示无权 ----------
+        (function () {
+            var originalFetch = window.fetch;
+            window.fetch = function () {
+                return originalFetch.apply(this, arguments).then(function (resp) {
+                    if (resp.status === 401) {
+                        window.location.href = '/login';
+                        throw new Error('未登录');
+                    }
+                    if (resp.status === 403) {
+                        resp.clone().json().then(function (data) {
+                            showToast((data && data.error_msg) || '无权访问', 'error');
+                        }).catch(function () {
+                            showToast('无权访问', 'error');
+                        });
+                    }
+                    return resp;
+                });
+            };
+        })();
+
+        // ---------- 按菜单权限渲染侧边栏 ----------
+        // menus: { code: { can_view, can_write }, ... }；null 或缺失表示未限制（如超管由后端已返回全量）
+        function applyMenuPermissions(menus) {
+            var hasPerms = menus && typeof menus === 'object';
+            navItems.forEach(function (item) {
+                var code = item.dataset.tab || item.dataset.menu;
+                if (!code) { return; }
+                if (hasPerms && !(menus[code] && menus[code].can_view)) {
+                    item.style.display = 'none';
+                }
+            });
+            // 隐藏无可见子项的父分组
+            document.querySelectorAll('.nav-group').forEach(function (group) {
+                var visible = Array.prototype.some.call(group.querySelectorAll('[data-tab], [data-menu]'), function (it) {
+                    return it.style.display !== 'none';
+                });
+                if (!visible) { group.style.display = 'none'; }
+            });
+            // 切换到第一个可见的面板（仅 data-tab 项）
+            var firstTab = null;
+            navItems.forEach(function (item) {
+                if (!firstTab && item.dataset.tab && item.style.display !== 'none') {
+                    firstTab = item.dataset.tab;
+                }
+            });
+            if (firstTab && validTabs.indexOf(firstTab) >= 0) {
+                switchPanel(firstTab);
+            }
+        }
+
+        // ---------- 加载登录态并渲染用户信息 + 菜单权限 ----------
+        async function loadSessionInfo() {
+            var data;
+            try {
+                var resp = await fetch('/api/auth/me', { headers: { 'Accept': 'application/json' } });
+                data = await resp.json();
+            } catch (e) {
+                return; // 401 已由拦截器跳转登录
+            }
+            if (!data || !data.success) { return; }
+            var user = data.user || {};
+            var nameEl = document.getElementById('user-name');
+            if (nameEl) {
+                var realName = user.real_name || user.username || '';
+                nameEl.textContent = realName + (user.is_super ? '（超管）' : '');
+            }
+            applyMenuPermissions(data.menus || null);
+        }
+
+        function bindLogout() {
+            var btn = document.getElementById('logout-btn');
+            if (!btn) { return; }
+            btn.addEventListener('click', function () {
+                fetch('/api/auth/logout', { method: 'POST' })
+                    .then(function () { window.location.href = '/login'; })
+                    .catch(function () { window.location.href = '/login'; });
+            });
+        }
+
+        // ---------- 根据报文自动识别 SKU 槽位数量 ----------
+        function extractSkuItems(node) {
+            const results = [];
+            (function walk(n) {
+                if (Array.isArray(n)) {
+                    const hasSku = n.some(function (it) {
+                        return it && typeof it === 'object' && ('sku_id' in it || 'outer_sku_id' in it);
+                    });
+                    if (hasSku) {
+                        n.forEach(function (it) {
+                            if (it && typeof it === 'object') { results.push(it); }
+                        });
+                        return;
+                    }
+                    n.forEach(function (it) { walk(it); });
+                    return;
+                }
+                if (n && typeof n === 'object') {
+                    Object.keys(n).forEach(function (k) { walk(n[k]); });
+                }
+            })(node);
+            return results;
+        }
+
+        function renderSkuSlots(panel, detail) {
+            const container = panel.querySelector('[data-sku-slots]');
+            if (!container) { return; }
+            let items = [];
+            try { items = extractSkuItems(JSON.parse(detail)); }
+            catch (e) { items = []; }
+            if (!items.length) {
+                container.innerHTML =
+                    '<div class="sku-slots-title">未识别到具体 SKU 槽位，默认按单个 SKU 处理</div>' +
+                    '<div class="sku-slot">' +
+                    '<span class="sku-slot-no">SKU1</span>' +
+                    '<input type="text" class="sku-input" data-sku-input="0" placeholder="第 1 段 SKU" />' +
+                    '</div>';
+                return;
+            }
+            const html = ['<div class="sku-slots-title">识别到 ' + items.length + ' 个 SKU 槽位（SKU1 替换第 1 段，SKU2 替换第 2 段，依此类推；留空不替换）</div>'];
+            items.forEach(function (it, idx) {
+                const current = it.outer_sku_id || it.sku_id || '';
+                html.push(
+                    '<div class="sku-slot">' +
+                    '<span class="sku-slot-no">SKU' + (idx + 1) + '</span>' +
+                    '<input type="text" class="sku-input" data-sku-input="' + idx + '" placeholder="' + escapeHtml(current || '第 ' + (idx + 1) + ' 段 SKU') + '" />' +
+                    '</div>'
+                );
+            });
+            container.innerHTML = html.join('');
+        }
+
+        // ---------- Header / Query 键值对表格 ----------
+        function addKvRowTo(block) {
+            const tbody = block.querySelector('tbody');
+            const tr = document.createElement('tr');
+
+            const tdKey = document.createElement('td');
+            const keyInput = document.createElement('input');
+            keyInput.type = 'text';
+            keyInput.placeholder = 'Key';
+            tdKey.appendChild(keyInput);
+
+            const tdVal = document.createElement('td');
+            const valInput = document.createElement('input');
+            valInput.type = 'text';
+            valInput.placeholder = 'Value';
+            tdVal.appendChild(valInput);
+
+            const tdDel = document.createElement('td');
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-ghost';
+            delBtn.textContent = '删除';
+            delBtn.addEventListener('click', function () { removeKvRow(delBtn); });
+            tdDel.appendChild(delBtn);
+
+            tr.appendChild(tdKey);
+            tr.appendChild(tdVal);
+            tr.appendChild(tdDel);
+            tbody.appendChild(tr);
+        }
+
+        function addKvRow(btn) {
+            const block = btn.closest('.kv-block');
+            if (block) { addKvRowTo(block); }
+        }
+
+        function removeKvRow(btn) {
+            const block = btn.closest('.kv-block');
+            const tr = btn.closest('tr');
+            if (tr) { tr.remove(); }
+            if (block && block.querySelectorAll('tbody tr').length === 0) {
+                addKvRowTo(block); // 始终保留一行便于继续录入
+            }
+        }
+
+        function collectKv(panel, name) {
+            const block = panel.querySelector('.kv-block[data-kv-block="' + name + '"]');
+            const obj = {};
+            if (!block) { return obj; }
+            block.querySelectorAll('tbody tr').forEach(function (tr) {
+                const inputs = tr.querySelectorAll('input');
+                const key = (inputs[0] && inputs[0].value.trim()) || '';
+                const val = (inputs[1] && inputs[1].value.trim()) || '';
+                if (key) { obj[key] = val; }
+            });
+            return obj;
+        }
+
+        // ---------- 通用工具 ----------
+        function placeholderAlert(name) {
+            showToast('「' + name + '」暂未接入后端', 'info');
+        }
+
+        function setStatus(el, state, text) {
+            el.className = 'status-badge status-' + state;
+            el.textContent = text;
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text);
+            }
+            return new Promise(function (resolve, reject) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); resolve(); }
+                catch (e) { reject(e); }
+                finally { document.body.removeChild(ta); }
+            });
+        }
+
+        function findStatus(btn) {
+            const panel = btn.closest('.panel');
+            return panel.querySelector('[data-status]');
+        }
+
+        function findResultArea(btn) {
+            const panel = btn.closest('.panel');
+            return panel.querySelector('.response-area') || panel.querySelector('textarea');
+        }
+
+        // ---------- 响应体 JSON 语法高亮 ----------
+        function renderHighlight(codeEl, text) {
+            let formatted = text == null ? '' : String(text);
+            try {
+                formatted = JSON.stringify(JSON.parse(formatted), null, 2);
+            } catch (e) { /* 非 JSON 文本保持原样 */ }
+            codeEl.textContent = formatted;
+            codeEl.removeAttribute('data-highlighted');
+            codeEl.classList.remove('hljs');
+            codeEl.className = 'language-json';
+            if (window.hljs) { window.hljs.highlightElement(codeEl); }
+        }
+
+        // ---------- 真实发送请求 ----------
+        function realSend(btn) {
+            const panel = btn.closest('.panel');
+            const urlInput = panel.querySelector('[data-http-url]');
+            const url = (urlInput && urlInput.value.trim()) || '';
+
+            // 发送前校验：URL 不能为空
+            if (!url) {
+                showToast('请先填写请求 URL', 'warning');
+                if (urlInput) { urlInput.focus(); }
+                return;
+            }
+
+            const method = (panel.querySelector('[data-http-method]') && panel.querySelector('[data-http-method]').value) || 'POST';
+            const headers = collectKv(panel, 'headers');
+            const query_params = collectKv(panel, 'query');
+            const editor = panel.querySelector('.json-editor');
+            const body = editor ? editor.value : '';
+            const status = findStatus(btn);
+            const costEl = panel.querySelector('[data-cost]');
+            const codeEl = panel.querySelector('[data-response]');
+            const originalText = btn.textContent;
+
+            // 加载态：置灰按钮、防止重复点击
+            btn.disabled = true;
+            btn.textContent = '请求中…';
+            if (status) { setStatus(status, 'loading', '请求中…'); }
+
+            fetch('/api/run_request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    method: method,
+                    url: url,
+                    headers: headers,
+                    query_params: query_params,
+                    body: body,
+                    body_type: 'json'
+                })
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (status) { setStatus(status, 'success', '请求成功'); }
+                        if (costEl) { costEl.textContent = '耗时 ' + (data.cost_ms || 0) + ' ms'; }
+                        if (codeEl) { renderHighlight(codeEl, data.response_body || ''); }
+                        showToast('请求成功，耗时 ' + (data.cost_ms || 0) + ' ms', 'success');
+                    } else {
+                        const errMsg = (data && data.error_msg) || '未知错误';
+                        if (status) { setStatus(status, 'error', '请求失败'); }
+                        if (codeEl) { renderHighlight(codeEl, errMsg); }
+                        showToast('请求失败：' + errMsg, 'error');
+                    }
+                })
+                .catch(function () {
+                    if (status) { setStatus(status, 'error', '请求失败'); }
+                    if (codeEl) { renderHighlight(codeEl, '网络或服务异常'); }
+                    showToast('请求失败：网络或服务异常', 'error');
+                })
+                .finally(function () {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        }
+
+        // ---------- 格式化 JSON ----------
+        function formatJson(el) {
+            const text = el.value.trim();
+            if (!text) { showToast('内容为空，无法格式化', 'warning'); return; }
+            try {
+                el.value = JSON.stringify(JSON.parse(text), null, 4);
+            } catch (e) {
+                fetch('/api/format_json', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: text })
+                })
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (data) {
+                        if (data.ok) { el.value = data.formatted; }
+                        else { showToast('JSON 格式错误：' + (data.error || e.message), 'error'); }
+                    })
+                    .catch(function () { showToast('JSON 格式错误：' + e.message, 'error'); });
+            }
+        }
+
+        // ---------- 清空输入 ----------
+        function clearInput(el) { el.value = ''; }
+
+        // ---------- 复制输入框值 ----------
+        function copyInput(row, idx) {
+            const inputs = row.querySelectorAll('input');
+            const input = (idx === undefined) ? inputs[0] : inputs[idx];
+            const value = (input && input.value.trim()) || '-';
+            if (value === '-') { showToast('内容为空，无法复制', 'warning'); return; }
+            copyToClipboard(value)
+                .then(function () { showToast('已复制：' + value, 'success'); })
+                .catch(function () { showToast('复制失败，请手动复制', 'error'); });
+        }
+
+        // ---------- 清空结果区 ----------
+        function clearResult(btn) {
+            const panel = btn.closest('.panel');
+            panel.querySelectorAll('textarea').forEach(function (t) { t.value = ''; });
+            const st = findStatus(btn);
+            if (st) setStatus(st, 'pending', '待执行');
+        }
+
+        // ---------- 发送（未接入后端的面板保留模拟）----------
+        function simulateSend(btn) {
+            const panel = btn.closest('.panel');
+            const status = findStatus(btn);
+            const area = findResultArea(btn) || panel.querySelector('textarea');
+
+            btn.disabled = true;
+            if (status) setStatus(status, 'loading', '执行中…');
+            if (area && area !== panel.querySelector('.json-editor') && area.readOnly !== undefined && area.readOnly) {
+                area.value = '正在执行，请稍候…';
+            }
+
+            setTimeout(function () {
+                btn.disabled = false;
+                if (status) setStatus(status, 'success', '执行完成');
+                if (area && area.readOnly) area.value = '（模拟）执行完成，真实响应待接入。';
+            }, 1200);
+        }
+
+        // ---------- 下拉框填充 ----------
+        function fillSelect(sel, options, placeholder) {
+            if (!sel) { return; }
+            sel.innerHTML = '';
+            const ph = document.createElement('option');
+            ph.value = '';
+            ph.textContent = placeholder || '请选择';
+            sel.appendChild(ph);
+            (options || []).forEach(function (opt) {
+                const o = document.createElement('option');
+                o.value = String(opt.value);
+                o.textContent = opt.text;
+                sel.appendChild(o);
+            });
+        }
+
+        // ---------- 刷新店铺（真实后端）----------
+        function loadShops(btn) {
+            const panel = (btn && btn.closest && btn.closest('.panel')) || document.querySelector('[data-panel="order_copy"]');
+            const sel = panel ? panel.querySelector('[data-shop-select]') : null;
+            if (btn) { btn.disabled = true; }
+
+            fetch('/api/shops')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('刷新店铺失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    const shops = data.shops || [];
+                    fillSelect(sel, shops.map(function (s) {
+                        return {
+                            value: s.id,
+                            text: (s.cp_c_shop_title || s.seller_nick || s.ecode || '') + ' (ID: ' + s.id + ')'
+                        };
+                    }), '请选择店铺');
+                    showToast('已加载 ' + shops.length + ' 个店铺', 'success');
+                })
+                .catch(function () { showToast('刷新店铺失败：网络或服务异常', 'error'); })
+                .finally(function () { if (btn) { btn.disabled = false; } });
+        }
+
+        // ---------- 公域平台正向/逆向造单（复用后端 service 层）----------
+        function getCurrentEnv() {
+            const envSel = document.getElementById('global-env');
+            return (envSel && envSel.value) || 'TEST';
+        }
+
+        // ---------- 右上角环境下拉：从环境配置表取「项目名称 + 环境」组合----------
+        function loadGlobalEnvOptions() {
+            const sel = document.getElementById('global-env');
+            if (!sel) { return; }
+            const cur = sel.value;
+            fetch('/api/env-config/options')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    const opts = (data && data.success) ? (data.options || []) : [];
+                    const items = [];
+                    opts.forEach(function (o) {
+                        const project = (o.project_name || '').trim();
+                        const env = (o.env || '').trim();
+                        if (!env) { return; }
+                        const value = project ? (project + '||' + env) : env;
+                        const text = project ? (project + ' / ' + env) : env;
+                        if (items.some(function (it) { return it.value === value; })) { return; }
+                        items.push({ value: value, text: text });
+                    });
+                    if (!items.length) { items.push({ value: 'TEST', text: 'TEST' }); }
+                    sel.innerHTML = '';
+                    items.forEach(function (it) {
+                        const opt = document.createElement('option');
+                        opt.value = it.value;
+                        opt.textContent = it.text;
+                        sel.appendChild(opt);
+                    });
+                    if (items.some(function (it) { return it.value === cur; })) { sel.value = cur; }
+                })
+                .catch(function () { /* 保留默认选项 */ });
+        }
+
+        function forwardFields(panel) {
+            const nickInput = panel.querySelector('[data-forward-seller-nick]');
+            const envSel = panel.querySelector('[data-forward-env]');
+            const chainSel = panel.querySelector('[data-chain]');
+            return {
+                platform: (panel.querySelector('[data-platform]') || {}).value || '',
+                scenario: (panel.querySelector('[data-scenario]') || {}).value || '',
+                sellerNick: nickInput ? (nickInput.value || '').trim() : '',
+                env: (envSel && envSel.value) || getCurrentEnv(),
+                chain: (chainSel && chainSel.value) || ''
+            };
+        }
+
+        function replaceSellerNick(btn) {
+            const panel = btn.closest('.panel');
+            const f = forwardFields(panel);
+            const editor = panel.querySelector('.json-editor');
+            const editorText = editor ? editor.value : '';
+            if (!f.platform) { showToast('请先选择平台', 'warning'); return; }
+            if (!f.sellerNick) { showToast('请输入卖家昵称', 'warning'); return; }
+            if (!editorText.trim()) { showToast('请先点击「仅预览」生成报文', 'warning'); return; }
+
+            btn.disabled = true;
+            fetch('/api/platform-order/replace-seller', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: f.env, platform: f.platform, seller_nick: f.sellerNick, editor_text: editorText })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (editor) { editor.value = data.preview; }
+                        renderSkuSlots(panel, data.preview);
+                        showToast('卖家昵称替换成功', 'success');
+                    } else {
+                        showToast('替换失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () { showToast('替换失败：网络或服务异常', 'error'); })
+                .finally(function () { btn.disabled = false; });
+        }
+
+        function replaceSkuValues(btn) {
+            const panel = btn.closest('.panel');
+            const f = forwardFields(panel);
+            const editor = panel.querySelector('.json-editor');
+            const editorText = editor ? editor.value : '';
+            const inputs = panel.querySelectorAll('[data-sku-input]');
+            const skuValues = [];
+            inputs.forEach(function (inp) { skuValues.push((inp.value || '').trim()); });
+
+            if (!f.platform || !f.scenario) { showToast('请选择平台与场景报文', 'warning'); return; }
+            if (!editorText.trim()) { showToast('请先点击「仅预览」生成报文', 'warning'); return; }
+            if (!skuValues.some(function (v) { return v; })) { showToast('请至少填写一个 SKU', 'warning'); return; }
+
+            btn.disabled = true;
+            fetch('/api/platform-order/replace-sku', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: f.env, platform: f.platform, scenario: f.scenario, editor_text: editorText, sku_values: skuValues })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (editor) { editor.value = data.preview; }
+                        renderSkuSlots(panel, data.preview);
+                        showToast('SKU 替换成功', 'success');
+                    } else {
+                        showToast('替换失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () { showToast('替换失败：网络或服务异常', 'error'); })
+                .finally(function () { btn.disabled = false; });
+        }
+
+        function platformOrderPreview(btn) {
+            const panel = btn.closest('.panel');
+            const f = forwardFields(panel);
+            const editor = panel.querySelector('.json-editor');
+            const status = findStatus(btn);
+            const costEl = panel.querySelector('[data-cost]');
+            const originalText = btn.textContent;
+
+            if (!f.platform || !f.scenario) { showToast('请选择平台与场景报文', 'warning'); return; }
+
+            btn.disabled = true; btn.textContent = '预览中…';
+            if (status) { setStatus(status, 'loading', '预览中…'); }
+
+            fetch('/api/platform-order/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: f.env, platform: f.platform, scenario: f.scenario, sku_values: [] })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (editor) { editor.value = data.preview; }
+                        renderSkuSlots(panel, data.preview);
+                        if (status) { setStatus(status, 'success', '预览成功'); }
+                        if (costEl) { costEl.textContent = ''; }
+                        showToast('预览成功', 'success');
+                    } else {
+                        const errMsg = (data && data.error_msg) || '未知错误';
+                        if (status) { setStatus(status, 'error', '预览失败'); }
+                        showToast('预览失败：' + errMsg, 'error');
+                    }
+                })
+                .catch(function () {
+                    if (status) { setStatus(status, 'error', '预览失败'); }
+                    showToast('预览失败：网络或服务异常', 'error');
+                })
+                .finally(function () { btn.disabled = false; btn.textContent = originalText; });
+        }
+
+        function platformOrderGenerate(btn) {
+            const panel = btn.closest('.panel');
+            const f = forwardFields(panel);
+            const editor = panel.querySelector('.json-editor');
+            const editorText = editor ? editor.value : '';
+            const status = findStatus(btn);
+            const codeEl = panel.querySelector('[data-response]');
+            const costEl = panel.querySelector('[data-cost]');
+            const abortBtn = panel.querySelector('[data-abort]');
+            const originalText = btn.textContent;
+
+            if (!f.platform || !f.scenario) { showToast('请选择平台与场景报文', 'warning'); return; }
+            if (!editorText.trim()) { showToast('请先点击「仅预览」生成报文', 'warning'); return; }
+
+            const controller = new AbortController();
+            panel.__abortController = controller;
+
+            btn.disabled = true; btn.textContent = '生成中…';
+            if (abortBtn) { abortBtn.disabled = false; }
+            if (status) { setStatus(status, 'loading', '生成中…'); }
+
+            fetch('/api/platform-order/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: f.env, platform: f.platform, scenario: f.scenario, editor_text: editorText, chain: f.chain }),
+                signal: controller.signal
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (status) { setStatus(status, 'success', '生成成功'); }
+                        const summary = {
+                            tid: data.tid,
+                            middle_table: data.middle_table,
+                            source_id: data.source_id,
+                            master_id: data.master_id,
+                            chain: data.chain
+                        };
+                        const progress = (data.progress || []).join('\n');
+                        if (codeEl) { renderHighlight(codeEl, progress + (progress ? '\n\n' : '') + JSON.stringify(summary, null, 2)); }
+                        if (costEl) { costEl.textContent = 'tid: ' + (data.tid || '-'); }
+                        showToast('生成订单成功，tid=' + (data.tid || '-'), 'success');
+                    } else {
+                        const errMsg = (data && data.error_msg) || '未知错误';
+                        const progress = (data && data.progress) ? data.progress.join('\n') : '';
+                        const failedNode = (data && data.failed_node) || '';
+                        const failureReason = (data && data.failure_reason) || '';
+                        let out = progress ? (progress + '\n\n') : '';
+                        out += '失败节点：' + (failedNode || errMsg);
+                        if (failureReason) { out += '\n失败原因：' + failureReason; }
+                        if (status) { setStatus(status, 'error', '生成失败'); }
+                        if (codeEl) { renderHighlight(codeEl, out); }
+                        showToast('生成失败：' + errMsg, 'error');
+                    }
+                })
+                .catch(function (err) {
+                    if (err && err.name === 'AbortError') {
+                        if (status) { setStatus(status, 'pending', '已终止'); }
+                        showToast('已终止生成订单', 'warning');
+                        return;
+                    }
+                    if (status) { setStatus(status, 'error', '生成失败'); }
+                    if (codeEl) { renderHighlight(codeEl, '网络或服务异常'); }
+                    showToast('生成失败：网络或服务异常', 'error');
+                })
+                .finally(function () {
+                    btn.disabled = false; btn.textContent = originalText;
+                    panel.__abortController = null;
+                    if (abortBtn) { abortBtn.disabled = true; }
+                });
+        }
+
+        function platformOrderAbort(btn) {
+            const panel = btn.closest('.panel');
+            const controller = panel.__abortController;
+            if (controller) { controller.abort(); }
+        }
+
+        function reverseFields(panel) {
+            const tidInput = panel.querySelector('[data-tid]');
+            return {
+                platform: (panel.querySelector('[data-platform]') || {}).value || '',
+                scenario: (panel.querySelector('[data-scenario]') || {}).value || '',
+                tid: tidInput ? (tidInput.value || '').trim() : ''
+            };
+        }
+
+        function reverseOrderPreview(btn) {
+            const panel = btn.closest('.panel');
+            const f = reverseFields(panel);
+            const editor = panel.querySelector('.json-editor');
+            const status = findStatus(btn);
+            const codeEl = panel.querySelector('[data-response]');
+            const originalText = btn.textContent;
+
+            if (!f.platform || !f.scenario) { showToast('请选择平台与逆向场景报文', 'warning'); return; }
+            if (!f.tid) { showToast('请填写平台单号（零售发货单 tid）', 'warning'); return; }
+
+            btn.disabled = true; btn.textContent = '预览中…';
+            if (status) { setStatus(status, 'loading', '预览中…'); }
+
+            fetch('/api/reverse-order/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: getCurrentEnv(), platform: f.platform, scenario: f.scenario, tid: f.tid })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (editor) { editor.value = data.preview; }
+                        if (status) { setStatus(status, 'success', '预览成功'); }
+                        if (codeEl) { renderHighlight(codeEl, data.preview); }
+                        showToast('预览成功', 'success');
+                    } else {
+                        const errMsg = (data && data.error_msg) || '未知错误';
+                        if (status) { setStatus(status, 'error', '预览失败'); }
+                        if (codeEl) { renderHighlight(codeEl, errMsg); }
+                        showToast('预览失败：' + errMsg, 'error');
+                    }
+                })
+                .catch(function () {
+                    if (status) { setStatus(status, 'error', '预览失败'); }
+                    if (codeEl) { renderHighlight(codeEl, '网络或服务异常'); }
+                    showToast('预览失败：网络或服务异常', 'error');
+                })
+                .finally(function () { btn.disabled = false; btn.textContent = originalText; });
+        }
+
+        function reverseOrderGenerate(btn) {
+            const panel = btn.closest('.panel');
+            const f = reverseFields(panel);
+            const editor = panel.querySelector('.json-editor');
+            const editorText = editor ? editor.value : '';
+            const status = findStatus(btn);
+            const codeEl = panel.querySelector('[data-response]');
+            const originalText = btn.textContent;
+
+            if (!f.platform || !f.scenario) { showToast('请选择平台与逆向场景报文', 'warning'); return; }
+            if (!f.tid) { showToast('请填写平台单号（零售发货单 tid）', 'warning'); return; }
+            if (!editorText.trim()) { showToast('请先点击「仅预览」生成报文', 'warning'); return; }
+
+            btn.disabled = true; btn.textContent = '生成中…';
+            if (status) { setStatus(status, 'loading', '生成中…'); }
+
+            fetch('/api/reverse-order/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: getCurrentEnv(), platform: f.platform, scenario: f.scenario, tid: f.tid, editor_text: editorText })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (status) { setStatus(status, 'success', '生成成功'); }
+                        if (codeEl) { renderHighlight(codeEl, JSON.stringify({ return_order_id: data.return_order_id, return_no: data.return_no, tid: data.tid, transfer: data.transfer }, null, 2)); }
+                        showToast('生成售后申请成功，return_no=' + (data.return_no || '-'), 'success');
+                    } else {
+                        const errMsg = (data && data.error_msg) || '未知错误';
+                        if (status) { setStatus(status, 'error', '生成失败'); }
+                        if (codeEl) { renderHighlight(codeEl, errMsg); }
+                        showToast('生成失败：' + errMsg, 'error');
+                    }
+                })
+                .catch(function () {
+                    if (status) { setStatus(status, 'error', '生成失败'); }
+                    if (codeEl) { renderHighlight(codeEl, '网络或服务异常'); }
+                    showToast('生成失败：网络或服务异常', 'error');
+                })
+                .finally(function () { btn.disabled = false; btn.textContent = originalText; });
+        }
+
+        // ---------- 加载逻辑仓（真实后端，可搜索组合框）----------
+        let logicStoreTimer = null;
+        function logicStoreLabel(s) {
+            return (s.ecode || '') + ' / ' + (s.ename || '') + ' (ID: ' + s.id + ')';
+        }
+        function loadLogicStores() {
+            const panel = document.querySelector('[data-panel="stock_adjust"]');
+            if (!panel) { return; }
+            queryLogicStores(panel, '', false);
+        }
+        function onLogicStoreFocus(input) {
+            const list = input.closest('.panel').querySelector('[data-logic-list]');
+            if (list) { list.classList.add('open'); }
+        }
+        function onLogicStoreInput(input) {
+            const panel = input.closest('.panel');
+            const hidden = panel.querySelector('[data-logic-store]');
+            if (hidden) { hidden.value = ''; }
+            if (logicStoreTimer) { clearTimeout(logicStoreTimer); }
+            logicStoreTimer = setTimeout(function () {
+                queryLogicStores(panel, input.value.trim(), true);
+            }, 250);
+        }
+        function queryLogicStores(panel, keyword, openAfter) {
+            const url = '/api/logic-stores' + (keyword ? '?keyword=' + encodeURIComponent(keyword) : '');
+            fetch(url)
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('加载逻辑仓失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    renderLogicList(panel, data.stores || []);
+                    if (openAfter) {
+                        const list = panel.querySelector('[data-logic-list]');
+                        if (list) { list.classList.add('open'); }
+                    }
+                })
+                .catch(function () { showToast('加载逻辑仓失败：网络或服务异常', 'error'); });
+        }
+        function renderLogicList(panel, stores) {
+            const list = panel.querySelector('[data-logic-list]');
+            if (!list) { return; }
+            if (!stores.length) {
+                list.innerHTML = '<div class="combo-empty">未找到匹配的逻辑仓</div>';
+                return;
+            }
+            list.innerHTML = stores.map(function (s) {
+                return '<div class="combo-item" data-id="' + s.id + '" data-ecode="' + (s.ecode || '') + '" data-ename="' + (s.ename || '') + '" onclick="selectLogicStore(this)">' +
+                    (s.ecode || '') + ' / ' + (s.ename || '') + ' (ID: ' + s.id + ')' + '</div>';
+            }).join('');
+        }
+        function selectLogicStore(item) {
+            const panel = item.closest('.panel');
+            const store = {
+                id: item.getAttribute('data-id'),
+                ecode: item.getAttribute('data-ecode'),
+                ename: item.getAttribute('data-ename')
+            };
+            const hidden = panel.querySelector('[data-logic-store]');
+            const input = panel.querySelector('[data-logic-search]');
+            if (hidden) { hidden.value = String(store.id); }
+            if (input) { input.value = logicStoreLabel(store); }
+            const list = panel.querySelector('[data-logic-list]');
+            if (list) { list.classList.remove('open'); }
+            loadSaStores(Number(store.id));
+        }
+        function loadSaStores(logicStoreId) {
+            const panel = document.querySelector('[data-panel="stock_adjust"]');
+            if (!panel) { return; }
+            const saSel = panel.querySelector('[data-sa-store]');
+            const shareEl = panel.querySelector('[data-share-store]');
+
+            fillSelect(saSel, [], '请选择配销仓');
+            if (shareEl) { shareEl.textContent = '聚合仓'; }
+            if (!logicStoreId) { return; }
+
+            fetch('/api/sa-stores?logic_store_id=' + encodeURIComponent(logicStoreId))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('加载配销仓失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    const share = data.share_store;
+                    if (shareEl) {
+                        const shareId = share ? share.id : '';
+                        shareEl.textContent = share
+                            ? ('聚合仓: ' + (share.ecode || '') + ' / ' + (share.ename || '') + ' (ID: ' + shareId + ')')
+                            : '聚合仓: 未找到';
+                    }
+                    const saStores = data.sa_stores || [];
+                    fillSelect(saSel, saStores.map(function (s) {
+                        return { value: s.id, text: (s.ecode || '') + ' / ' + (s.ename || '') + ' (ID: ' + s.id + ')' };
+                    }), '请选择配销仓');
+                    if (!saStores.length) { showToast('未查询到配销仓', 'warning'); }
+                })
+                .catch(function () { showToast('加载配销仓失败：网络或服务异常', 'error'); });
+        }
+
+        // 点击下拉外部关闭列表
+        document.addEventListener('click', function (e) {
+            document.querySelectorAll('.combo-list.open').forEach(function (list) {
+                const combo = list.closest('[data-logic-combo]');
+                if (combo && !combo.contains(e.target)) { list.classList.remove('open'); }
+            });
+        });
+
+        // ---------- 调整库存操作结果摘要 ----------
+        const STOCK_STEP_LABELS = {
+            '库存调整单保存': '保存库存调整单',
+            '库存调整单提交': '提交库存调整单',
+            '分货单保存': '保存分货单',
+            '分货单提交': '提交分货单'
+        };
+        function formatStockResult(result) {
+            const steps = (result && result.steps) || [];
+            if (!steps.length) { return ''; }
+            return steps.map(function (s) {
+                const label = STOCK_STEP_LABELS[s.step] || s.step;
+                return s.success
+                    ? (label + '：成功')
+                    : (label + '：失败' + (s.reason ? '（' + s.reason + '）' : ''));
+            }).join('\n');
+        }
+
+        // ---------- 执行调整库存（真实后端）----------
+        function execStockAdjust(btn) {
+            const panel = btn.closest('.panel');
+            const logicSel = panel.querySelector('[data-logic-store]');
+            const saSel = panel.querySelector('[data-sa-store]');
+            const skuInput = panel.querySelector('[data-sku]');
+            const qtyInput = panel.querySelector('[data-qty]');
+            const status = findStatus(btn);
+            const area = findResultArea(btn);
+            const originalText = btn.textContent;
+
+            const logicStoreId = logicSel ? logicSel.value : '';
+            const saStoreId = saSel ? saSel.value : '';
+            const skuEcode = skuInput ? skuInput.value.trim() : '';
+            const qty = qtyInput ? qtyInput.value.trim() : '';
+
+            if (!logicStoreId) { showToast('请选择逻辑仓', 'warning'); return; }
+            if (!saStoreId) { showToast('请选择配销仓', 'warning'); return; }
+            if (!skuEcode) { showToast('请输入 SKU', 'warning'); return; }
+            if (!qty || isNaN(Number(qty))) { showToast('调整数量必须是数字', 'warning'); return; }
+
+            btn.disabled = true;
+            btn.textContent = '执行中…';
+            if (status) { setStatus(status, 'loading', '执行中…'); }
+
+            fetch('/api/stock-adjust/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    logic_store_id: Number(logicStoreId),
+                    sa_store_id: Number(saStoreId),
+                    sku_ecode: skuEcode,
+                    qty: qty
+                })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (status) { setStatus(status, 'success', '执行完成'); }
+                        if (area) { area.value = formatStockResult(data.data) || '执行完成'; }
+                        showToast('库存调整执行完成', 'success');
+                    } else {
+                        const errMsg = (data && data.error_msg) || '未知错误';
+                        if (status) { setStatus(status, 'error', '执行失败'); }
+                        if (area) {
+                            const summary = (data && data.data) ? formatStockResult(data.data) : '';
+                            area.value = summary || errMsg;
+                        }
+                        showToast('执行失败：' + errMsg, 'error');
+                    }
+                })
+                .catch(function () {
+                    if (status) { setStatus(status, 'error', '执行失败'); }
+                    if (area) { area.value = '网络或服务异常'; }
+                    showToast('执行失败：网络或服务异常', 'error');
+                })
+                .finally(function () {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        }
+
+        // ---------- 基础配置：环境配置 CRUD ----------
+        function renderEnvConfigs(rows) {
+            const tbody = document.querySelector('[data-env-config-list]');
+            if (!tbody) { return; }
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="table-empty">暂无数据</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(function (r) {
+                return '<tr>' +
+                    '<td>' + escapeHtml(r.project_name) + '</td>' +
+                    '<td>' + escapeHtml(r.env) + '</td>' +
+                    '<td>' + escapeHtml(r.page_url) + '</td>' +
+                    '<td>' + escapeHtml(r.account) + '</td>' +
+                    '<td>******</td>' +
+                    '<td>' +
+                        '<button class="btn btn-ghost" onclick="openEnvModal(' + r.id + ')">编辑</button> ' +
+                        '<button class="btn btn-danger" onclick="deleteEnvConfig(' + r.id + ')">删除</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        let envRows = [];
+
+        function loadEnvConfigs() {
+            fetch('/api/env-config/list')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('加载环境配置失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    envRows = data.records || [];
+                    applyEnvFilter();
+                })
+                .catch(function () { showToast('加载环境配置失败：网络或服务异常', 'error'); });
+        }
+
+        function applyEnvFilter() {
+            const p = (document.getElementById('env-filter-project') || {}).value || '';
+            const e = (document.getElementById('env-filter-env') || {}).value || '';
+            const ps = p.trim().toLowerCase();
+            const es = e.trim().toLowerCase();
+            const rows = envRows.filter(function (r) {
+                if (ps && (r.project_name || '').toLowerCase().indexOf(ps) < 0) { return false; }
+                if (es && (r.env || '').toLowerCase().indexOf(es) < 0) { return false; }
+                return true;
+            });
+            renderEnvConfigs(rows);
+        }
+
+        function resetEnvFilter() {
+            const p = document.getElementById('env-filter-project'); if (p) { p.value = ''; }
+            const e = document.getElementById('env-filter-env'); if (e) { e.value = ''; }
+            applyEnvFilter();
+        }
+
+        function openEnvModal(id) {
+            document.getElementById('env-id').value = '';
+            document.getElementById('env-project').value = '';
+            document.getElementById('env-env').value = '';
+            document.getElementById('env-url').value = '';
+            document.getElementById('env-account').value = '';
+            document.getElementById('env-password').value = '';
+            document.getElementById('env-password').placeholder = '请输入密码';
+            document.getElementById('env-modal-title').textContent = '新增环境配置';
+            if (id) {
+                document.getElementById('env-modal-title').textContent = '编辑环境配置';
+                fetch('/api/env-config/' + id)
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            showToast('加载环境配置失败：' + (data.error_msg || '未知错误'), 'error');
+                            return;
+                        }
+                        const c = data.record || {};
+                        document.getElementById('env-id').value = c.id || '';
+                        document.getElementById('env-project').value = c.project_name || '';
+                        document.getElementById('env-env').value = c.env || '';
+                        document.getElementById('env-url').value = c.page_url || '';
+                        document.getElementById('env-account').value = c.account || '';
+                        document.getElementById('env-password').value = '';
+                        document.getElementById('env-password').placeholder = '留空则不修改密码';
+                    })
+                    .catch(function () { showToast('加载环境配置失败：网络或服务异常', 'error'); });
+            }
+            document.getElementById('env-modal').classList.add('show');
+        }
+
+        function closeEnvModal() {
+            document.getElementById('env-modal').classList.remove('show');
+        }
+
+        function saveEnvConfig() {
+            const id = document.getElementById('env-id').value;
+            const payload = {
+                project_name: document.getElementById('env-project').value.trim(),
+                env: document.getElementById('env-env').value.trim(),
+                page_url: document.getElementById('env-url').value.trim(),
+                account: document.getElementById('env-account').value.trim(),
+                password: document.getElementById('env-password').value
+            };
+            if (!payload.project_name || !payload.env) {
+                showToast('项目名称和环境不能为空', 'warning');
+                return;
+            }
+            const isEdit = !!id;
+            const url = isEdit ? '/api/env-config/' + id : '/api/env-config/add';
+            const method = isEdit ? 'PUT' : 'POST';
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('保存失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    showToast(isEdit ? '修改成功' : '新增成功', 'success');
+                    closeEnvModal();
+                    loadEnvConfigs();
+                    loadDbProjectOptions();
+                    loadGlobalEnvOptions();
+                })
+                .catch(function () { showToast('保存失败：网络或服务异常', 'error'); });
+        }
+
+        function deleteEnvConfig(id) {
+            showConfirm('确定要删除这条环境配置吗？删除后不可恢复。', function () {
+                fetch('/api/env-config/' + id, { method: 'DELETE' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            showToast('删除失败：' + (data.error_msg || '未知错误'), 'error');
+                            return;
+                        }
+                        showToast('删除成功', 'success');
+                        loadEnvConfigs();
+                        loadDbProjectOptions();
+                        loadGlobalEnvOptions();
+                    })
+                    .catch(function () { showToast('删除失败：网络或服务异常', 'error'); });
+            });
+        }
+
+        // ---------- 基础配置：数据库配置 CRUD ----------
+        let dbProjectEnvMap = {};
+
+        function loadDbProjectOptions() {
+            fetch('/api/env-config/options')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    const opts = (data && data.success) ? (data.options || []) : [];
+                    dbProjectEnvMap = {};
+                    opts.forEach(function (o) {
+                        if (!dbProjectEnvMap[o.project_name]) { dbProjectEnvMap[o.project_name] = []; }
+                        if (o.env && dbProjectEnvMap[o.project_name].indexOf(o.env) < 0) {
+                            dbProjectEnvMap[o.project_name].push(o.env);
+                        }
+                    });
+                    const projects = Object.keys(dbProjectEnvMap);
+                    const sel = document.getElementById('db-project');
+                    if (!sel) { return; }
+                    const cur = sel.value;
+                    sel.innerHTML = '<option value="">请选择项目</option>';
+                    projects.forEach(function (p) {
+                        const opt = document.createElement('option');
+                        opt.value = p;
+                        opt.textContent = p;
+                        sel.appendChild(opt);
+                    });
+                    if (cur && projects.indexOf(cur) >= 0) { sel.value = cur; }
+                    filterDbEnvs();
+                })
+                .catch(function () { /* 静默失败：项目下拉留空 */ });
+        }
+
+        function filterDbEnvs() {
+            const project = document.getElementById('db-project').value;
+            const sel = document.getElementById('db-env');
+            const envs = dbProjectEnvMap[project] || [];
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">请选择环境</option>';
+            envs.forEach(function (e) {
+                const opt = document.createElement('option');
+                opt.value = e;
+                opt.textContent = e;
+                sel.appendChild(opt);
+            });
+            if (cur && envs.indexOf(cur) >= 0) { sel.value = cur; }
+        }
+
+        function renderDbConfigs(rows) {
+            const tbody = document.querySelector('[data-db-config-list]');
+            if (!tbody) { return; }
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="table-empty">暂无数据</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(function (r) {
+                return '<tr>' +
+                    '<td>' + escapeHtml(r.project_name) + '</td>' +
+                    '<td>' + escapeHtml(r.env) + '</td>' +
+                    '<td>' + escapeHtml(r.db_address) + '</td>' +
+                    '<td>' + escapeHtml(r.port) + '</td>' +
+                    '<td>' + escapeHtml(r.db_name) + '</td>' +
+                    '<td>' + escapeHtml(r.username) + '</td>' +
+                    '<td>******</td>' +
+                    '<td>' +
+                        '<button class="btn btn-ghost" onclick="openDbModal(' + r.id + ')">编辑</button> ' +
+                        '<button class="btn btn-danger" onclick="deleteDbConfig(' + r.id + ')">删除</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        let dbRows = [];
+
+        function loadDbConfigs() {
+            fetch('/api/db-config/list')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('加载数据库配置失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    dbRows = data.records || [];
+                    applyDbFilter();
+                })
+                .catch(function () { showToast('加载数据库配置失败：网络或服务异常', 'error'); });
+        }
+
+        function applyDbFilter() {
+            const p = (document.getElementById('db-filter-project') || {}).value || '';
+            const e = (document.getElementById('db-filter-env') || {}).value || '';
+            const d = (document.getElementById('db-filter-name') || {}).value || '';
+            const ps = p.trim().toLowerCase();
+            const es = e.trim().toLowerCase();
+            const ds = d.trim().toLowerCase();
+            const rows = dbRows.filter(function (r) {
+                if (ps && (r.project_name || '').toLowerCase().indexOf(ps) < 0) { return false; }
+                if (es && (r.env || '').toLowerCase().indexOf(es) < 0) { return false; }
+                if (ds && (r.db_name || '').toLowerCase().indexOf(ds) < 0) { return false; }
+                return true;
+            });
+            renderDbConfigs(rows);
+        }
+
+        function resetDbFilter() {
+            const p = document.getElementById('db-filter-project'); if (p) { p.value = ''; }
+            const e = document.getElementById('db-filter-env'); if (e) { e.value = ''; }
+            const d = document.getElementById('db-filter-name'); if (d) { d.value = ''; }
+            applyDbFilter();
+        }
+
+        function openDbModal(id) {
+            document.getElementById('db-id').value = '';
+            document.getElementById('db-project').value = '';
+            document.getElementById('db-env').value = '';
+            document.getElementById('db-address').value = '';
+            document.getElementById('db-port').value = '';
+            document.getElementById('db-name').value = '';
+            document.getElementById('db-username').value = '';
+            document.getElementById('db-password').value = '';
+            document.getElementById('db-password').placeholder = '请输入密码';
+            document.getElementById('db-modal-title').textContent = '新增数据库配置';
+            filterDbEnvs();
+            if (id) {
+                document.getElementById('db-modal-title').textContent = '编辑数据库配置';
+                fetch('/api/db-config/' + id)
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            showToast('加载数据库配置失败：' + (data.error_msg || '未知错误'), 'error');
+                            return;
+                        }
+                        const c = data.record || {};
+                        document.getElementById('db-id').value = c.id || '';
+                        document.getElementById('db-project').value = c.project_name || '';
+                        filterDbEnvs();
+                        document.getElementById('db-env').value = c.env || '';
+                        document.getElementById('db-address').value = c.db_address || '';
+                        document.getElementById('db-port').value = c.port || '';
+                        document.getElementById('db-name').value = c.db_name || '';
+                        document.getElementById('db-username').value = c.username || '';
+                        document.getElementById('db-password').value = '';
+                        document.getElementById('db-password').placeholder = '留空则不修改密码';
+                    })
+                    .catch(function () { showToast('加载数据库配置失败：网络或服务异常', 'error'); });
+            }
+            document.getElementById('db-modal').classList.add('show');
+        }
+
+        function closeDbModal() {
+            document.getElementById('db-modal').classList.remove('show');
+        }
+
+        function saveDbConfig() {
+            const id = document.getElementById('db-id').value;
+            const payload = {
+                project_name: document.getElementById('db-project').value,
+                env: document.getElementById('db-env').value,
+                db_address: document.getElementById('db-address').value.trim(),
+                port: document.getElementById('db-port').value.trim(),
+                db_name: document.getElementById('db-name').value.trim(),
+                username: document.getElementById('db-username').value.trim(),
+                password: document.getElementById('db-password').value
+            };
+            if (!payload.project_name || !payload.env) {
+                showToast('请选择项目名称和环境', 'warning');
+                return;
+            }
+            const isEdit = !!id;
+            const url = isEdit ? '/api/db-config/' + id : '/api/db-config/add';
+            const method = isEdit ? 'PUT' : 'POST';
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('保存失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    showToast(isEdit ? '修改成功' : '新增成功', 'success');
+                    closeDbModal();
+                    loadDbConfigs();
+                })
+                .catch(function () { showToast('保存失败：网络或服务异常', 'error'); });
+        }
+
+        function deleteDbConfig(id) {
+            showConfirm('确定要删除这条数据库配置吗？删除后不可恢复。', function () {
+                fetch('/api/db-config/' + id, { method: 'DELETE' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            showToast('删除失败：' + (data.error_msg || '未知错误'), 'error');
+                            return;
+                        }
+                        showToast('删除成功', 'success');
+                        loadDbConfigs();
+                    })
+                    .catch(function () { showToast('删除失败：网络或服务异常', 'error'); });
+            });
+        }
+
+        // ---------- 基础配置：XXL-Job配置 CRUD ----------
+        let xxlProjectEnvMap = {};
+
+        function loadXxlProjectOptions() {
+            fetch('/api/env-config/options')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    const opts = (data && data.success) ? (data.options || []) : [];
+                    xxlProjectEnvMap = {};
+                    opts.forEach(function (o) {
+                        if (!xxlProjectEnvMap[o.project_name]) { xxlProjectEnvMap[o.project_name] = []; }
+                        if (o.env && xxlProjectEnvMap[o.project_name].indexOf(o.env) < 0) {
+                            xxlProjectEnvMap[o.project_name].push(o.env);
+                        }
+                    });
+                    const projects = Object.keys(xxlProjectEnvMap);
+                    const sel = document.getElementById('xxl-project');
+                    if (!sel) { return; }
+                    const cur = sel.value;
+                    sel.innerHTML = '<option value="">请选择项目</option>';
+                    projects.forEach(function (p) {
+                        const opt = document.createElement('option');
+                        opt.value = p;
+                        opt.textContent = p;
+                        sel.appendChild(opt);
+                    });
+                    if (cur && projects.indexOf(cur) >= 0) { sel.value = cur; }
+                    filterXxlEnvs();
+                })
+                .catch(function () { /* 静默失败：项目下拉留空 */ });
+        }
+
+        function filterXxlEnvs() {
+            const project = document.getElementById('xxl-project').value;
+            const sel = document.getElementById('xxl-env');
+            const envs = xxlProjectEnvMap[project] || [];
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">请选择环境</option>';
+            envs.forEach(function (e) {
+                const opt = document.createElement('option');
+                opt.value = e;
+                opt.textContent = e;
+                sel.appendChild(opt);
+            });
+            if (cur && envs.indexOf(cur) >= 0) { sel.value = cur; }
+        }
+
+        function renderXxlConfigs(rows) {
+            const tbody = document.querySelector('[data-xxl-config-list]');
+            if (!tbody) { return; }
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="table-empty">暂无数据</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(function (r) {
+                return '<tr>' +
+                    '<td>' + escapeHtml(r.project_name) + '</td>' +
+                    '<td>' + escapeHtml(r.env) + '</td>' +
+                    '<td>' + escapeHtml(r.address) + '</td>' +
+                    '<td>' + escapeHtml(r.account) + '</td>' +
+                    '<td>******</td>' +
+                    '<td>' +
+                        '<button class="btn btn-ghost" onclick="openXxlModal(' + r.id + ')">编辑</button> ' +
+                        '<button class="btn btn-danger" onclick="deleteXxlConfig(' + r.id + ')">删除</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        let xxlRows = [];
+
+        function loadXxlConfigs() {
+            fetch('/api/xxl-config/list')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('加载XXL-Job配置失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    xxlRows = data.records || [];
+                    applyXxlFilter();
+                })
+                .catch(function () { showToast('加载XXL-Job配置失败：网络或服务异常', 'error'); });
+        }
+
+        function applyXxlFilter() {
+            const p = (document.getElementById('xxl-filter-project') || {}).value || '';
+            const e = (document.getElementById('xxl-filter-env') || {}).value || '';
+            const ps = p.trim().toLowerCase();
+            const es = e.trim().toLowerCase();
+            const rows = xxlRows.filter(function (r) {
+                if (ps && (r.project_name || '').toLowerCase().indexOf(ps) < 0) { return false; }
+                if (es && (r.env || '').toLowerCase().indexOf(es) < 0) { return false; }
+                return true;
+            });
+            renderXxlConfigs(rows);
+        }
+
+        function resetXxlFilter() {
+            const p = document.getElementById('xxl-filter-project'); if (p) { p.value = ''; }
+            const e = document.getElementById('xxl-filter-env'); if (e) { e.value = ''; }
+            applyXxlFilter();
+        }
+
+        function openXxlModal(id) {
+            document.getElementById('xxl-id').value = '';
+            document.getElementById('xxl-project').value = '';
+            document.getElementById('xxl-env').value = '';
+            document.getElementById('xxl-address').value = '';
+            document.getElementById('xxl-account').value = '';
+            document.getElementById('xxl-password').value = '';
+            document.getElementById('xxl-password').placeholder = '请输入密码';
+            document.getElementById('xxl-modal-title').textContent = '新增XXL-Job配置';
+            filterXxlEnvs();
+            if (id) {
+                document.getElementById('xxl-modal-title').textContent = '编辑XXL-Job配置';
+                fetch('/api/xxl-config/' + id)
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            showToast('加载XXL-Job配置失败：' + (data.error_msg || '未知错误'), 'error');
+                            return;
+                        }
+                        const c = data.record || {};
+                        document.getElementById('xxl-id').value = c.id || '';
+                        document.getElementById('xxl-project').value = c.project_name || '';
+                        filterXxlEnvs();
+                        document.getElementById('xxl-env').value = c.env || '';
+                        document.getElementById('xxl-address').value = c.address || '';
+                        document.getElementById('xxl-account').value = c.account || '';
+                        document.getElementById('xxl-password').value = '';
+                        document.getElementById('xxl-password').placeholder = '留空则不修改密码';
+                    })
+                    .catch(function () { showToast('加载XXL-Job配置失败：网络或服务异常', 'error'); });
+            }
+            document.getElementById('xxl-modal').classList.add('show');
+        }
+
+        function closeXxlModal() {
+            document.getElementById('xxl-modal').classList.remove('show');
+        }
+
+        function saveXxlConfig() {
+            const id = document.getElementById('xxl-id').value;
+            const payload = {
+                project_name: document.getElementById('xxl-project').value,
+                env: document.getElementById('xxl-env').value,
+                address: document.getElementById('xxl-address').value.trim(),
+                account: document.getElementById('xxl-account').value.trim(),
+                password: document.getElementById('xxl-password').value
+            };
+            if (!payload.project_name || !payload.env) {
+                showToast('请选择项目名称和环境', 'warning');
+                return;
+            }
+            const isEdit = !!id;
+            const url = isEdit ? '/api/xxl-config/' + id : '/api/xxl-config/add';
+            const method = isEdit ? 'PUT' : 'POST';
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        showToast('保存失败：' + (data.error_msg || '未知错误'), 'error');
+                        return;
+                    }
+                    showToast(isEdit ? '修改成功' : '新增成功', 'success');
+                    closeXxlModal();
+                    loadXxlConfigs();
+                })
+                .catch(function () { showToast('保存失败：网络或服务异常', 'error'); });
+        }
+
+        function deleteXxlConfig(id) {
+            showConfirm('确定要删除这条数据库配置吗？删除后不可恢复。', function () {
+                fetch('/api/xxl-config/' + id, { method: 'DELETE' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            showToast('删除失败：' + (data.error_msg || '未知错误'), 'error');
+                            return;
+                        }
+                        showToast('删除成功', 'success');
+                        loadXxlConfigs();
+                    })
+                    .catch(function () { showToast('删除失败：网络或服务异常', 'error'); });
+            });
+        }
+
+        // ---------- 删除二次确认弹窗 ----------
+        let confirmCallback = null;
+        function showConfirm(message, cb) {
+            confirmCallback = cb;
+            document.getElementById('confirm-message').textContent = message;
+            document.getElementById('confirm-modal').classList.add('show');
+        }
+        function closeConfirm() {
+            confirmCallback = null;
+            document.getElementById('confirm-modal').classList.remove('show');
+        }
+        function confirmOk() {
+            const cb = confirmCallback;
+            closeConfirm();
+            if (cb) { cb(); }
+        }
+
+        // ---------- 历史记录：列表 / 分页 / 删除 ----------
+        let historyPage = 1;
+        let historyTotal = 0;
+        const HISTORY_PAGE_SIZE = 20;
+
+        function loadHistoryList() {
+            const body = document.getElementById('history-body');
+            if (!body) { return; }
+            body.innerHTML = '<tr><td colspan="8" class="table-empty">加载中…</td></tr>';
+            fetch('/api/history?page=' + historyPage + '&page_size=' + HISTORY_PAGE_SIZE)
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        historyTotal = data.total || 0;
+                        renderHistoryRows(data.records || []);
+                        renderHistoryPager();
+                    } else {
+                        body.innerHTML = '<tr><td colspan="8" class="table-empty">加载失败</td></tr>';
+                        showToast('加载失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () {
+                    body.innerHTML = '<tr><td colspan="8" class="table-empty">加载失败</td></tr>';
+                    showToast('加载失败：网络或服务异常', 'error');
+                });
+        }
+
+        function renderHistoryRows(records) {
+            const body = document.getElementById('history-body');
+            if (!records.length) {
+                body.innerHTML = '<tr><td colspan="8" class="table-empty">暂无历史记录</td></tr>';
+                return;
+            }
+            body.innerHTML = '';
+            records.forEach(function (r) {
+                const tr = document.createElement('tr');
+
+                const tdId = document.createElement('td');
+                tdId.textContent = r.id;
+                tr.appendChild(tdId);
+
+                const tdTime = document.createElement('td');
+                tdTime.textContent = r.create_time || '-';
+                tr.appendChild(tdTime);
+
+                const tdMethod = document.createElement('td');
+                tdMethod.textContent = r.request_method || '-';
+                tr.appendChild(tdMethod);
+
+                const tdUrl = document.createElement('td');
+                tdUrl.className = 'mono';
+                tdUrl.textContent = r.request_url || '-';
+                tdUrl.title = r.request_url || '';
+                tr.appendChild(tdUrl);
+
+                const tdCode = document.createElement('td');
+                tdCode.textContent = (r.response_code == null || r.response_code === '') ? '-' : r.response_code;
+                tr.appendChild(tdCode);
+
+                const tdCost = document.createElement('td');
+                tdCost.textContent = (r.cost_ms == null || r.cost_ms === '') ? '-' : (r.cost_ms + ' ms');
+                tr.appendChild(tdCost);
+
+                const tdResult = document.createElement('td');
+                const resultBadge = document.createElement('span');
+                if (r.error_msg) {
+                    resultBadge.className = 'badge badge-err';
+                    resultBadge.textContent = '失败';
+                    tdResult.title = r.error_msg;
+                } else {
+                    resultBadge.className = 'badge badge-ok';
+                    resultBadge.textContent = '成功';
+                }
+                tdResult.appendChild(resultBadge);
+                tr.appendChild(tdResult);
+
+                const tdOp = document.createElement('td');
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'btn btn-danger';
+                delBtn.textContent = '删除';
+                delBtn.addEventListener('click', function () { deleteHistoryRecord(r.id); });
+                tdOp.appendChild(delBtn);
+                tr.appendChild(tdOp);
+
+                body.appendChild(tr);
+            });
+        }
+
+        function renderHistoryPager() {
+            const totalPages = Math.max(1, Math.ceil(historyTotal / HISTORY_PAGE_SIZE));
+            document.getElementById('page-info').textContent = '第 ' + historyPage + ' / ' + totalPages + ' 页，共 ' + historyTotal + ' 条';
+            document.getElementById('btn-prev').disabled = historyPage <= 1;
+            document.getElementById('btn-next').disabled = historyPage >= totalPages;
+        }
+
+        function changeHistoryPage(delta) {
+            const totalPages = Math.max(1, Math.ceil(historyTotal / HISTORY_PAGE_SIZE));
+            const next = historyPage + delta;
+            if (next < 1 || next > totalPages) { return; }
+            historyPage = next;
+            loadHistoryList();
+        }
+
+        function deleteHistoryRecord(id) {
+            showConfirm('确认删除该条记录（ID=' + id + '）吗？', function () {
+                fetch('/api/history/' + id, { method: 'DELETE' })
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (data) {
+                        if (data && data.success) {
+                            showToast('删除成功', 'success');
+                            loadHistoryList();
+                        } else {
+                            showToast('删除失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                        }
+                    })
+                    .catch(function () { showToast('删除失败：网络或服务异常', 'error'); });
+            });
+        }
+
+        // ---------- 报文主数据：平台选项卡 / 列表 / 增删改 ----------
+        const MESSAGE_PLATFORMS = ['淘宝', '京东', '抖音', '拼多多', '快手', '小红书', '视频号', '通用'];
+        let messageCurrentPlatform = '淘宝';
+        let messageEditingId = null;
+        let messageRows = [];
+
+        function renderMessageTabs() {
+            const wrap = document.getElementById('platform-tabs');
+            if (!wrap) { return; }
+            wrap.innerHTML = '';
+            MESSAGE_PLATFORMS.forEach(function (p) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tab' + (p === messageCurrentPlatform ? ' active' : '');
+                btn.textContent = p;
+                btn.addEventListener('click', function () { switchMessagePlatform(p); });
+                wrap.appendChild(btn);
+            });
+        }
+
+        function switchMessagePlatform(p) {
+            messageCurrentPlatform = p;
+            renderMessageTabs();
+            loadMessageList();
+        }
+
+        function loadMessageList() {
+            const body = document.getElementById('message-body');
+            if (!body) { return; }
+            body.innerHTML = '<tr><td colspan="6" class="table-empty">加载中…</td></tr>';
+            const checkAll = document.getElementById('check-all');
+            if (checkAll) { checkAll.checked = false; }
+
+            fetch('/api/message-data/list?platform=' + encodeURIComponent(messageCurrentPlatform))
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        messageRows = data.records || [];
+                        applyMessageFilter();
+                    } else {
+                        body.innerHTML = '<tr><td colspan="6" class="table-empty">加载失败</td></tr>';
+                        showToast('加载失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () {
+                    body.innerHTML = '<tr><td colspan="6" class="table-empty">加载失败</td></tr>';
+                    showToast('加载失败：网络或服务异常', 'error');
+                });
+        }
+
+        function applyMessageFilter() {
+            const name = (document.getElementById('msg-filter-name') || {}).value || '';
+            const type = (document.getElementById('msg-filter-type') || {}).value || '';
+            const ns = name.trim().toLowerCase();
+            let rows = messageRows;
+            if (ns) {
+                rows = rows.filter(function (r) { return (r.message_name || '').toLowerCase().indexOf(ns) >= 0; });
+            }
+            if (type) {
+                rows = rows.filter(function (r) { return (r.type || '') === type; });
+            }
+            renderMessageRows(rows);
+        }
+
+        function resetMessageFilter() {
+            const name = document.getElementById('msg-filter-name'); if (name) { name.value = ''; }
+            const type = document.getElementById('msg-filter-type'); if (type) { type.value = ''; }
+            applyMessageFilter();
+        }
+
+        function renderMessageRows(records) {
+            const body = document.getElementById('message-body');
+            if (!records.length) {
+                body.innerHTML = '<tr><td colspan="6" class="table-empty">暂无报文记录</td></tr>';
+                return;
+            }
+            body.innerHTML = '';
+            records.forEach(function (r) {
+                const tr = document.createElement('tr');
+
+                const tdCheck = document.createElement('td');
+                tdCheck.className = 'col-check';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'row-check';
+                cb.value = r.id;
+                tdCheck.appendChild(cb);
+                tr.appendChild(tdCheck);
+
+                const tdId = document.createElement('td');
+                tdId.textContent = r.id;
+                tr.appendChild(tdId);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = r.message_name || '-';
+                tr.appendChild(tdName);
+
+                const tdPlatform = document.createElement('td');
+                tdPlatform.textContent = r.platform || '-';
+                tr.appendChild(tdPlatform);
+
+                const tdType = document.createElement('td');
+                tdType.textContent = r.type || '-';
+                tr.appendChild(tdType);
+
+                const tdTime = document.createElement('td');
+                tdTime.textContent = r.create_time || '-';
+                tr.appendChild(tdTime);
+
+                body.appendChild(tr);
+            });
+        }
+
+        function getSelectedMessageIds() {
+            const ids = [];
+            document.querySelectorAll('#message-body .row-check:checked').forEach(function (cb) {
+                ids.push(parseInt(cb.value, 10));
+            });
+            return ids;
+        }
+
+        function toggleAllMessages(checkbox) {
+            document.querySelectorAll('#message-body .row-check').forEach(function (cb) {
+                cb.checked = checkbox.checked;
+            });
+        }
+
+        function openMessageAddModal() {
+            messageEditingId = null;
+            document.getElementById('message-edit-title').textContent = '新增报文';
+            const platformSel = document.getElementById('message-platform');
+            platformSel.value = messageCurrentPlatform;
+            platformSel.disabled = false;
+            document.getElementById('message-name').value = '';
+            document.getElementById('message-type').value = '正向';
+            document.getElementById('message-detail').value = '';
+            document.getElementById('message-edit-overlay').classList.add('show');
+        }
+
+        function openMessageEditModal() {
+            const ids = getSelectedMessageIds();
+            if (ids.length === 0) { showToast('请先勾选一条记录', 'warning'); return; }
+            if (ids.length > 1) { showToast('修改仅支持勾选一条记录', 'warning'); return; }
+            fetch('/api/message-data/' + ids[0])
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success && data.record) {
+                        messageEditingId = data.record.id;
+                        document.getElementById('message-edit-title').textContent = '修改报文';
+                        const platformSel = document.getElementById('message-platform');
+                        platformSel.value = data.record.platform || '通用';
+                        platformSel.disabled = true;
+                        document.getElementById('message-name').value = data.record.message_name || '';
+                        document.getElementById('message-type').value = data.record.type || '正向';
+                        document.getElementById('message-detail').value = data.record.message_detail || '';
+                        document.getElementById('message-edit-overlay').classList.add('show');
+                    } else {
+                        showToast('加载报文详情失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () { showToast('加载报文详情失败：网络或服务异常', 'error'); });
+        }
+
+        function closeMessageEditModal() {
+            document.getElementById('message-edit-overlay').classList.remove('show');
+        }
+
+        function saveMessage() {
+            const platform = document.getElementById('message-platform').value;
+            const name = document.getElementById('message-name').value;
+            const type = document.getElementById('message-type').value;
+            const detail = document.getElementById('message-detail').value;
+
+            if (!platform) {
+                showToast('请选择平台', 'error');
+                return;
+            }
+            if (!name.trim() || !detail.trim()) {
+                showToast('报文名称、报文详情不能为空', 'error');
+                return;
+            }
+
+            const url = messageEditingId == null ? '/api/message-data/add' : '/api/message-data/' + messageEditingId;
+            const method = messageEditingId == null ? 'POST' : 'PUT';
+            const payload = { message_name: name, message_detail: detail, type: type };
+            if (messageEditingId == null) { payload.platform = platform; }
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        closeMessageEditModal();
+                        showToast(messageEditingId == null ? '新增成功' : '修改成功', 'success');
+                        if (messageEditingId == null && platform !== messageCurrentPlatform) {
+                            messageCurrentPlatform = platform;
+                            renderMessageTabs();
+                        }
+                        loadMessageList();
+                    } else {
+                        showToast((messageEditingId == null ? '新增失败' : '修改失败') + '：' + ((data && data.error_msg) || '未知错误'), 'error');
+                    }
+                })
+                .catch(function () { showToast('操作失败：网络或服务异常', 'error'); });
+        }
+
+        function openMessageDeleteConfirm() {
+            const ids = getSelectedMessageIds();
+            if (ids.length === 0) { showToast('请先勾选要删除的记录', 'warning'); return; }
+            showConfirm('确认删除选中报文记录？删除后不可恢复。', function () {
+                fetch('/api/message-data/batch', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: ids })
+                })
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (data) {
+                        if (data && data.success) {
+                            showToast('删除成功', 'success');
+                            loadMessageList();
+                        } else {
+                            showToast('删除失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                        }
+                    })
+                    .catch(function () { showToast('删除失败：网络或服务异常', 'error'); });
+            });
+        }
+
+        // ---------- 初始化：登录态 + 菜单权限 + 顶栏用户信息 ----------
+        bindLogout();
+        loadSessionInfo();
+
+        // ---------- 初始化：平台 / 场景报文联动 ----------
+        initPlatformSelects();
+        initScenarioSelects();
+
+        // ---------- 初始化：预加载逻辑仓（店铺由「刷新店铺」按钮触发）----------
+        loadLogicStores();
+
+        // ---------- 初始化：预加载基础配置（环境配置 / 数据库配置 / XXL-Job配置）----------
+        loadEnvConfigs();
+        loadDbConfigs();
+        loadDbProjectOptions();
+        loadGlobalEnvOptions();
+        loadXxlConfigs();
+        loadXxlProjectOptions();
+
+        // ---------- 初始化：预加载历史记录 + 报文主数据 ----------
+        loadHistoryList();
+        renderMessageTabs();
+        loadMessageList();
+
+        // ---------- 初始化：为所有键值对表格预置一行 ----------
+        document.querySelectorAll('.kv-block').forEach(function (block) {
+            addKvRowTo(block);
+        });
+
+    </script>
+
+    
+</body>
+</html>

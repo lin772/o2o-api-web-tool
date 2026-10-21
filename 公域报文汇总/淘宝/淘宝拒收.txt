@@ -1,0 +1,44 @@
+[
+    {
+       "message_origin": "mock",
+	   "jdp_response": {
+            "refund_get_response": {
+                "refund": {
+                    "refund_version": 1742527892237,
+                    "reason": "不想要了111",
+                    "num": 1,
+                    "num_iid": 898416301548,
+                    "oid": 888246666621927407,
+                    "title": "Reg测试商品下载2",
+                    "tid": 888246666621927407,
+                    "good_status": "BUYER_NOT_RECEIVED",
+                    "operation_contraint": "null",
+                    "order_status": "TRADE_CLOSED",
+                    "seller_open_uid": "AAGFIlDsAAgk83r1JdnNNZLL",
+                    "price": "100",
+                    "total_fee": "100",
+                    "modified": "2025-03-21 11:32:32",
+                    "payment": "0",
+                    "attribute": ";reason:403769;bizCode:taobao.general.refund;leavesCat:201923602;7d:1;interceptInvestor:taobao;apply_reason_text:不想要了;itemBuyAmount:1;interceptItemListResult:[{\"subBizOrderId\"#3B888246666621927200,\"logisticInterceptEnum\"#3B\"INTERCEPT_NOT_APPLY\"}];seller_batch:true;logisticsCompanyName:顺丰;clj_zero_second_refund:1;cPartRefund:0;lis:1;licp:SF;_F_tlmType:C_taobao;sku:5751449380240|颜色分类#3B翠绿色#3A测试#3B1;sgr:1;bgmtc:2025-03-21 11#3B06#3B12;jibuBizCode:taobao.jibu;autoInterceptStatus:[{\"cpCode\"#3B\"YTO\",\"cpName\"#3B\"圆通速递\",\"interceptDate\"#3B1742527892387,\"logisticInterceptEnum\"#3B\"INTERCEPT_APPLY\",\"mailNo\"#3B\"YT1925024594873\",\"subBizOrderId\"#3B888246666621927200}];agreeSource:unknown;sellerDoRefundNick:oppo官方旗舰店;shop_name:oppo官方旗舰店;ttid:201200@taobao_iphone_10.47.10;nrp:1;sync:1;rp3:1;disputeTradeStatus:4;sars:skip;isVirtual:0;EXmrf:1087.1500.01;refundFrom:2;enfunddetail:1;gaia:2;f_proofSource:1#3A2#3A0#3A0#3A;pay_lock:seller;autoInterceptAgree:1;lastOrder:1;tod:129600000;newRefund:rp2;t_m_c:1;logisticsOrderCode:YT1925024594873;opRole:user;newUltron:3;refundPostFee:1;interceptVersion:3;apply_init_refund_fee:1087.1500.01;apply_text_id:403769;userCredit:5;sdkCode:ali.china.taobao;interceptStatus:0;rpmr2:1;agrExctd:2;rootCat:5051087.150002;tos:3;chnlObn:888246666621927200_335545300025272727;ol_tf:1087.1500;ability:1;part_refund:0;appName:refundface2;payMode:alipay;fps:4;workflowName:refund;sIntercept:1;lpt:PLATFORM;seller_audit:0;apply_biz_type:24;itemPrice:1087.1500;",
+                    "sku": "5751449380240|颜色分类:翠绿色;测试:1",
+                    "alipay_no": "2025032123001125541408506389",
+                    "buyer_open_uid": "AAHkIlDsAAgk83r1JdnKNgq0",
+                    "created": "2025-09-26 11:01:32",
+                    "refund_id": "335545300025272845",
+                    "buyer_nick": "林**",
+                    "dispute_type": "REFUND",
+                    "refund_phase": "onsale",
+                    "refund_fee": "100",
+                    "cs_status": 1,
+                    "seller_nick": "oppo官方旗舰店",
+                    "has_good_return": false,
+                    "status": "WAIT_SELLER_AGREE",
+                    "desc": ""
+                }
+            }
+        },
+        "jdp_modified": 1742527960000,
+        "refund_id": 335545300025272845,
+        "status": "WAIT_SELLER_AGREE"
+    }
+]

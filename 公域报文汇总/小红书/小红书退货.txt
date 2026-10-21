@@ -1,0 +1,49 @@
+{
+ "message_origin": "mock",
+ "sellernick": "OPPO商城测试的店",
+ "data": [{
+  "order_no": "P789573361207439165",
+  "return_reason": "其他",
+  "return_shipamount": 0.0,
+  "refund_type": 2,
+  "seller_return_address_detail": "河南省 郑州市 郑州航空港经济综合实验区 明港街道 双鹤一街和工业五路交叉口智能手机产业园C区17号楼",
+  "logistics_no": "SF3288229053239",
+  "item_refund_amount": 100,
+  "logistics_code": "SF3288229053239",
+  "platform_refund_status": "3",
+  "seller_return_town_name": "郑州航空港经济综合实验区",
+  "buyer_remark": "小孩子买了",
+  "buy_address_id": "fd1d359e601a24971a5e94855bbc5e8a",
+  "seller_return_province_name": "河南省",
+  "return_no": "R1646539143309018",
+  "seller_return_street_name": "明港街道",
+  "company_name": "顺丰速运",
+  "seller_return_city_name": "郑州市",
+  "return_status": 3,
+"created": "2025-09-24 17:01:11",
+  "modified": "2025-09-24 17:01:11",
+  "refund_amount": 189,
+  "items": [{
+   "quantity": 1,
+   "return_no": "R1646539143309018",
+   "return_quantity": 1,
+   "price": 399,
+   "refund_fee": 11.33,
+   "sku_id": "24null-68abff5971b9e20001165f97",
+   "sku": "110070130060",
+   "sub_order_id": "P78957336120743028168abff5971b9e20001165f97",
+   "title": "OPPO Pad 3 平板电脑 2.8K高清大屏 学生学习游戏娱乐办公阅读轻薄便携 夜幕蓝 12GB+256GB 官方标配"
+  },{
+   "quantity": 1,
+   "return_no": "R1646539143309018",
+   "return_quantity": 1,
+   "price": 219,
+   "refund_fee": 0.1,
+   "sku_id": "24null-67355a044713b30001268a46",
+   "sku": "110070330249",
+   "sub_order_id": "P78957336120743028167355a044713b30001268a46",
+   "title": "OPPO Pad 3 平板电脑 2.8K高清大屏 学生学习游戏娱乐办公阅读轻薄便携 夜幕蓝 12GB+256GB 官方标配"
+  }]
+ }],
+ "platform": "116"
+}

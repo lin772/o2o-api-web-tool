@@ -1,0 +1,32 @@
+{
+ "message_origin": "mock","sellernick": "OPPO商城旗舰店",
+ "data": [{
+  "order_no": "P784533909139189163",
+  "return_reason": "多拍/拍错/不想要",
+  "return_shipamount": 0.0,
+  "refund_type": 1,
+  "created": "2026-03-24 16:12:57",
+  "item_refund_amount": 189.0,
+  "expire_time": "2026-03-26 04:12:57",
+  "platform_refund_status": "1",
+  "good_status": 1,
+  "buyer_remark": "",
+  "buy_address_id": "ce80ea5b47224f4a6f04ad4c4f80a8d8",
+  "return_no": "R8217562139976794",
+  "return_status": 1,
+  "modified": "2026-03-24 16:12:57",
+  "refund_amount": 189,
+  "items": [{
+   "quantity": 1,
+   "return_no": "R8217562139976794",
+   "return_quantity": 1,
+   "price": 199.0,
+   "refund_fee": 199.0,
+   "sku_id": "24null-687de44c22713e0001a2534b",
+   "sku": "TC20260316000001",
+   "sub_order_id": "P784533909139183914687de44c22713e0001a2534b",
+   "title": "OPPO Find N6 折叠旗舰手机无感折痕哈苏2亿超清四摄第五代骁龙8至尊版 原钛16GB+1TB 卫星通信版 官方标配"
+  }]
+ }],
+ "platform": "116"
+}

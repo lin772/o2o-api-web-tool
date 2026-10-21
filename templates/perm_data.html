@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据权限 - 造数助手</title>
+    <style>
+        :root {
+            --bg: #f0f2f5; --card-bg: #ffffff; --topbar-bg: #1e4b8f; --sidebar-bg: #263238;
+            --sidebar-text: #b7c0c9; --sidebar-active-bg: #1e4b8f;
+            --border: #dcdfe6; --border-soft: #eef0f3; --text: #303133; --text-dim: #555861;
+            --text-mute: #909399; --accent: #1e4b8f; --primary: #2563eb; --primary-hover: #1d4ed8;
+            --red: #dc3545; --green: #16a34a; --warning: #d69e2e; --info: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased;
+        }
+
+        .topbar {
+            height: 48px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; background: var(--topbar-bg); border-bottom: 1px solid #163a6b;
+            color: #fff; flex-shrink: 0;
+        }
+        .topbar .title { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: #fff; }
+        .topbar .title .accent { color: #a7c8ff; }
+        .topbar-right { display: flex; align-items: center; gap: 18px; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-info .user-name { font-size: 13px; color: #d5e2f5; }
+        .user-info .logout-btn {
+            height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px;
+            background: rgba(255,255,255,0.12); color: #fff; font-size: 12px; cursor: pointer;
+        }
+        .user-info .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+        .layout { display: flex; height: calc(100vh - 48px); }
+
+        .sidebar {
+            width: 240px; min-width: 240px; background: var(--sidebar-bg);
+            overflow-y: auto; padding: 12px 8px; flex-shrink: 0;
+        }
+        .nav-header { padding: 8px 12px 6px; }
+        .nav-header .app-title { font-size: 14px; font-weight: 600; color: #fff; }
+        .nav-header .app-subtitle { font-size: 12px; color: var(--sidebar-text); margin-top: 3px; }
+        .nav-divider { height: 1px; background: rgba(255,255,255,0.10); margin: 10px 12px 8px; }
+        .nav-item {
+            display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 2px 0;
+            background: transparent; border: none; border-radius: 6px; color: var(--sidebar-text);
+            font-size: 13px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-item.active { background: var(--sidebar-active-bg); color: #fff; font-weight: 600; }
+        .nav-group { margin: 2px 0; }
+        .nav-parent { display: flex; align-items: center; justify-content: space-between; }
+        .nav-arrow { font-size: 12px; transition: transform 0.2s ease; }
+        .nav-group.collapsed .nav-arrow { transform: rotate(-90deg); }
+        .nav-group.collapsed .nav-sub { display: none; }
+        .nav-sub { overflow: hidden; }
+        .nav-sub-item { padding-left: 32px; font-size: 12px; }
+
+        .main { flex: 1; overflow: hidden; }
+        .perm-layout { display: flex; height: 100%; }
+
+        .list-panel { width: 280px; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .list-panel .panel-head { padding: 14px 16px; border-bottom: 1px solid var(--border-soft); font-size: 14px; font-weight: 600; }
+        .role-list { flex: 1; overflow-y: auto; }
+        .role-item { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); cursor: pointer; transition: background 0.15s ease; }
+        .role-item:hover { background: #f7f9fc; }
+        .role-item.active { background: #eaf1ff; border-left: 3px solid var(--primary); }
+        .role-item .name { font-size: 12px; color: var(--accent); }
+
+        .detail-panel { flex: 1; overflow-y: auto; padding: 20px 24px; }
+        .detail-empty { color: var(--text-mute); text-align: center; padding: 80px 0; font-size: 14px; }
+
+        .card { background: var(--card-bg); border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 16px; }
+        .card-head { padding: 14px 16px; border-bottom: 1px solid var(--border-soft); font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+        .card-body { padding: 16px; }
+
+        .section-title { font-size: 13px; font-weight: 600; color: var(--accent); margin: 16px 0 8px; display: flex; align-items: center; gap: 8px; }
+        .section-title:first-child { margin-top: 0; }
+        .hint { font-size: 12px; color: var(--warning); margin: 4px 0 10px; }
+        .muted { font-size: 12px; color: var(--text-mute); }
+
+        .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; }
+        .field-item { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 4px; font-size: 13px; }
+        .field-item:hover { background: #f5f7fb; }
+        .field-item .fname { flex: 1; }
+        .field-item label { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+        .field-item input:disabled + span { color: var(--text-mute); }
+
+        .scope-table { border: 1px solid var(--border-soft); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+        .scope-table .st-name { font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+        .scope-group { margin-bottom: 10px; }
+        .scope-group:last-child { margin-bottom: 0; }
+        .scope-group .sg-label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+        .scope-options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+        .scope-options label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+        .scope-options label.all { font-weight: 600; color: var(--primary); }
+
+        .save-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--border); padding: 12px 0; display: flex; align-items: center; gap: 12px; }
+        .save-bar .hint { margin: 0; flex: 1; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: #fff;
+            color: var(--text); padding: 7px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s ease;
+        }
+        .btn:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: #fff; }
+        .btn-sm { padding: 2px 8px; font-size: 12px; }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 10px 16px; border-radius: 6px; color: #fff; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); max-width: 360px; word-break: break-all; opacity: 0; transform: translateY(-10px); transition: all 0.3s ease; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background: var(--green); }
+        .toast-error { background: var(--red); }
+        .toast-warning { background: var(--warning); }
+        .toast-info { background: var(--info); }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="title">造数助手 <span class="accent">-</span> 权限管理</span>
+        <div class="topbar-right">
+            <div class="user-info">
+                <span class="user-name" id="user-name">...</span>
+                <button class="logout-btn" id="logout-btn" type="button">退出</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="nav-header">
+                <div class="app-title">WMS / 订单 造数助手</div>
+                <div class="app-subtitle">中间表 · 订单 · 回传</div>
+            </div>
+            <div class="nav-divider"></div>
+            <div class="nav-group collapsed">
+                <button class="nav-item nav-parent" data-parent="basic_config">
+                    <span>基础配置</span><span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-sub">
+                    <button class="nav-item nav-sub-item" data-href="/#env_config">环境配置</button>
+                    <button class="nav-item nav-sub-item" data-href="/#db_config">数据库配置</button>
+                    <button class="nav-item nav-sub-item" data-href="/#xxl_config">XXL-Job配置</button>
+                </div>
+            </div>
+            <div class="nav-group collapsed">
+                <button class="nav-item nav-parent" data-parent="system">
+                    <span>系统管理</span><span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-sub">
+                    <button class="nav-item nav-sub-item" data-href="/perm/user">用户管理</button>
+                    <button class="nav-item nav-sub-item" data-href="/perm/role">角色管理</button>
+                    <button class="nav-item nav-sub-item" data-href="/perm/menu">菜单权限</button>
+                    <button class="nav-item nav-sub-item active">数据权限</button>
+                </div>
+            </div>
+            <button class="nav-item" data-href="/#message_data">报文主数据</button>
+            <button class="nav-item" data-href="/#stock_adjust">调整库存</button>
+            <button class="nav-item" data-href="/#platform_order">公域平台正向造单</button>
+            <button class="nav-item" data-href="/#reverse_order">公域平台逆向造单</button>
+            <button class="nav-item" data-href="/#order_copy">平台订单中间表复制</button>
+            <button class="nav-item" data-href="/#history">历史记录</button>
+        </aside>
+
+        <main class="main">
+            <div class="perm-layout">
+                <div class="list-panel">
+                    <div class="panel-head">选择角色</div>
+                    <div class="role-list" id="role-list"></div>
+                </div>
+                <div class="detail-panel">
+                    <div class="detail-empty" id="detail-empty">请在左侧选择角色，配置其字段权限与数据值域</div>
+                    <div id="detail-content" style="display:none;">
+                        <div class="card">
+                            <div class="card-head"><span id="detail-title"></span></div>
+                            <div class="card-body">
+                                <div class="section-title">字段权限</div>
+                                <div class="muted" style="margin-bottom:8px;">控制该角色在各表可「查看」与「编辑」的字段。密码字段永不回显，主键与审计时间列默认可见。</div>
+                                <div id="field-section"></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-head"><span>数据值域（行级权限）</span></div>
+                            <div class="card-body">
+                                <div class="hint">行级权限提示：同一角色内「项目名称」与「环境」必须同时勾选（AND）才可见；缺失任一字段的值域，该角色无法看到对应项目/环境下的基础配置。</div>
+                                <div id="scope-section"></div>
+                            </div>
+                        </div>
+                        <div class="save-bar">
+                            <button class="btn btn-primary" id="btn-save">保存数据权限</button>
+                            <span class="hint">字段权限与值域将一并保存。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        var SCOPE_TABLES = ['env_config', 'db_config', 'xxl_config'];
+        var ALWAYS_VISIBLE = ['id', 'create_time', 'update_time'];
+        var state = {
+            roles: [], selectedId: null, tables: {}, names: {}, fieldComments: {},
+            dataPerms: {}, scopeValues: {}, projectOptions: [], envOptions: []
+        };
+
+        function showToast(message, type) {
+            var container = document.getElementById('toast-container');
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + (type || 'info');
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(function () { toast.classList.add('show'); });
+            setTimeout(function () { toast.classList.remove('show'); setTimeout(function () { toast.remove(); }, 300); }, 3000);
+        }
+
+        async function apiFetch(url, options) {
+            var opts = Object.assign({ headers: {} }, options || {});
+            opts.headers['Content-Type'] = 'application/json';
+            var resp;
+            try { resp = await fetch(url, opts); }
+            catch (e) { showToast('网络或服务异常', 'error'); throw e; }
+            if (resp.status === 401) { window.location.href = '/login'; throw new Error('未登录'); }
+            var data = null;
+            try { data = await resp.json(); } catch (e) { data = null; }
+            if (resp.status === 403) { showToast((data && data.error_msg) || '无权访问，需要超级管理员权限', 'error'); throw new Error('forbidden'); }
+            return data;
+        }
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        async function loadMeta() {
+            var roles = await apiFetch('/api/roles');
+            state.roles = (roles && roles.data) || [];
+            var tf = await apiFetch('/api/perm/table-fields');
+            state.tables = (tf && tf.tables) || {};
+            state.names = (tf && tf.names) || {};
+            state.fieldComments = (tf && tf.field_comments) || {};
+            var so = await apiFetch('/api/perm/scope-options');
+            state.projectOptions = (so && so.project_name) || [];
+            state.envOptions = (so && so.env) || [];
+            renderRoleList();
+        }
+
+        function renderRoleList() {
+            var el = document.getElementById('role-list');
+            el.innerHTML = '';
+            state.roles.forEach(function (r) {
+                var div = document.createElement('div');
+                div.className = 'role-item' + (r.id === state.selectedId ? ' active' : '');
+                div.innerHTML = '<div class="name">' + esc(r.role_name) + '</div>';
+                div.addEventListener('click', function () { selectRole(r.id); });
+                el.appendChild(div);
+            });
+        }
+
+        async function selectRole(id) {
+            state.selectedId = id;
+            var role = state.roles.find(function (r) { return r.id === id; });
+            renderRoleList();
+            document.getElementById('detail-empty').style.display = 'none';
+            document.getElementById('detail-content').style.display = 'block';
+            document.getElementById('detail-title').textContent = role.role_name + ' 的数据权限';
+
+            var dp = await apiFetch('/api/roles/' + id + '/data-perms');
+            state.dataPerms = {};
+            ((dp && dp.data) || []).forEach(function (it) {
+                if (!state.dataPerms[it.table_code]) { state.dataPerms[it.table_code] = {}; }
+                state.dataPerms[it.table_code][it.field_code] = { view: !!it.can_view, edit: !!it.can_edit };
+            });
+
+            var sv = await apiFetch('/api/roles/' + id + '/scope-values');
+            state.scopeValues = {};
+            ((sv && sv.data) || []).forEach(function (it) {
+                if (!state.scopeValues[it.table_code]) { state.scopeValues[it.table_code] = { project_name: new Set(), env: new Set() }; }
+                state.scopeValues[it.table_code][it.scope_type].add(it.scope_value);
+            });
+
+            renderFields();
+            renderScope();
+        }
+
+        function fieldPerm(table, field) {
+            var t = state.dataPerms[table];
+            if (t && t[field]) { return t[field]; }
+            return { view: false, edit: false };
+        }
+
+        function renderFields() {
+            var root = document.getElementById('field-section');
+            root.innerHTML = '';
+            Object.keys(state.tables).forEach(function (table) {
+                var fields = state.tables[table];
+                var wrap = document.createElement('div');
+                wrap.className = 'scope-table';
+                var nameEl = document.createElement('div');
+                nameEl.className = 'st-name';
+                nameEl.textContent = state.names[table] || table;
+                nameEl.style.display = 'flex';
+                nameEl.style.justifyContent = 'space-between';
+                nameEl.style.alignItems = 'center';
+                var actions = document.createElement('span');
+                var allBtn = document.createElement('button');
+                allBtn.className = 'btn btn-sm'; allBtn.textContent = '全部字段'; allBtn.style.marginRight = '6px';
+                allBtn.addEventListener('click', function () { setAllFields(table, true); });
+                var noneBtn = document.createElement('button');
+                noneBtn.className = 'btn btn-sm'; noneBtn.textContent = '清空';
+                noneBtn.addEventListener('click', function () { setAllFields(table, false); });
+                actions.appendChild(allBtn); actions.appendChild(noneBtn);
+                nameEl.appendChild(actions);
+                wrap.appendChild(nameEl);
+
+                var grid = document.createElement('div');
+                grid.className = 'field-grid';
+                fields.forEach(function (f) {
+                    // 不可勾选的字段（恒可见的 id/create_time/update_time 与永不回显的 password）直接不展示、不加入权限。
+                    var isAlways = ALWAYS_VISIBLE.indexOf(f) !== -1;
+                    var isPassword = f === 'password';
+                    if (isAlways || isPassword) { return; }
+
+                    var item = document.createElement('div');
+                    item.className = 'field-item';
+                    var perm = fieldPerm(table, f);
+
+                    var fname = document.createElement('span');
+                    fname.className = 'fname';
+                    fname.textContent = (state.fieldComments[table] || {})[f] || f;
+                    item.appendChild(fname);
+
+                    var viewLabel = document.createElement('label');
+                    var viewCb = document.createElement('input');
+                    viewCb.type = 'checkbox';
+                    viewCb.setAttribute('data-role', 'dp');
+                    viewCb.setAttribute('data-table', table);
+                    viewCb.setAttribute('data-field', f);
+                    viewCb.setAttribute('data-type', 'view');
+                    viewCb.checked = perm.view;
+                    viewCb.addEventListener('change', function () {
+                        if (!viewCb.checked) {
+                            var editCb = document.querySelector('input[data-role="dp"][data-table="' + table + '"][data-field="' + f + '"][data-type="edit"]');
+                            if (editCb) { editCb.checked = false; }
+                        }
+                    });
+                    viewLabel.appendChild(viewCb);
+                    viewLabel.appendChild(document.createTextNode('查看'));
+                    item.appendChild(viewLabel);
+
+                    var editLabel = document.createElement('label');
+                    var editCb = document.createElement('input');
+                    editCb.type = 'checkbox';
+                    editCb.setAttribute('data-role', 'dp');
+                    editCb.setAttribute('data-table', table);
+                    editCb.setAttribute('data-field', f);
+                    editCb.setAttribute('data-type', 'edit');
+                    editCb.checked = perm.edit;
+                    editCb.addEventListener('change', function () {
+                        if (editCb.checked) { viewCb.checked = true; }
+                    });
+                    editLabel.appendChild(editCb);
+                    editLabel.appendChild(document.createTextNode('编辑'));
+                    item.appendChild(editLabel);
+
+                    grid.appendChild(item);
+                });
+                wrap.appendChild(grid);
+                root.appendChild(wrap);
+            });
+        }
+
+        function setAllFields(table, checked) {
+            document.querySelectorAll('input[data-role="dp"][data-table="' + table + '"]').forEach(function (cb) {
+                if (!cb.disabled) { cb.checked = checked; }
+            });
+            if (!checked) { return; }
+            // 全选时确保编辑联动到查看
+            document.querySelectorAll('input[data-role="dp"][data-table="' + table + '"][data-type="edit"]').forEach(function (editCb) {
+                if (editCb.checked) {
+                    var viewCb = document.querySelector('input[data-role="dp"][data-table="' + table + '"][data-field="' + editCb.getAttribute('data-field') + '"][data-type="view"]');
+                    if (viewCb) { viewCb.checked = true; }
+                }
+            });
+        }
+
+        function scopeSet(table, type) {
+            var t = state.scopeValues[table];
+            if (t && t[type]) { return t[type]; }
+            return new Set();
+        }
+
+        function renderScope() {
+            var root = document.getElementById('scope-section');
+            root.innerHTML = '';
+            SCOPE_TABLES.forEach(function (table) {
+                var wrap = document.createElement('div');
+                wrap.className = 'scope-table';
+                var nameEl = document.createElement('div');
+                nameEl.className = 'st-name';
+                nameEl.textContent = state.names[table] || table;
+                wrap.appendChild(nameEl);
+
+                wrap.appendChild(renderScopeGroup(table, 'project_name', '项目名称', state.projectOptions));
+                wrap.appendChild(renderScopeGroup(table, 'env', '环境', state.envOptions));
+                root.appendChild(wrap);
+            });
+        }
+
+        function renderScopeGroup(table, type, label, options) {
+            var group = document.createElement('div');
+            group.className = 'scope-group';
+            var lab = document.createElement('div');
+            lab.className = 'sg-label';
+            lab.textContent = label + '：';
+            group.appendChild(lab);
+
+            var opts = document.createElement('div');
+            opts.className = 'scope-options';
+            var set = scopeSet(table, type);
+
+            var allLabel = document.createElement('label');
+            allLabel.className = 'all';
+            var allCb = document.createElement('input');
+            allCb.type = 'checkbox';
+            allCb.setAttribute('data-role', 'sc');
+            allCb.setAttribute('data-table', table);
+            allCb.setAttribute('data-type', type);
+            allCb.setAttribute('data-value', '*');
+            allCb.checked = set.has('*');
+            allCb.addEventListener('change', function () {
+                if (allCb.checked) {
+                    document.querySelectorAll('input[data-role="sc"][data-table="' + table + '"][data-type="' + type + '"]:not([data-value="*"])').forEach(function (cb) { cb.checked = false; });
+                }
+            });
+            allLabel.appendChild(allCb);
+            allLabel.appendChild(document.createTextNode('全部'));
+            opts.appendChild(allLabel);
+
+            options.forEach(function (val) {
+                var l = document.createElement('label');
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.setAttribute('data-role', 'sc');
+                cb.setAttribute('data-table', table);
+                cb.setAttribute('data-type', type);
+                cb.setAttribute('data-value', val);
+                cb.checked = set.has(val);
+                cb.addEventListener('change', function () {
+                    if (cb.checked) {
+                        var star = document.querySelector('input[data-role="sc"][data-table="' + table + '"][data-type="' + type + '"][data-value="*"]');
+                        if (star) { star.checked = false; }
+                    }
+                });
+                l.appendChild(cb);
+                l.appendChild(document.createTextNode(val));
+                opts.appendChild(l);
+            });
+            group.appendChild(opts);
+            return group;
+        }
+
+        async function saveData() {
+            if (!state.selectedId) { return; }
+
+            var dpItems = [];
+            document.querySelectorAll('input[data-role="dp"]').forEach(function (cb) {
+                dpItems.push({
+                    table_code: cb.getAttribute('data-table'),
+                    field_code: cb.getAttribute('data-field'),
+                    can_view: cb.getAttribute('data-type') === 'view' ? cb.checked : null,
+                    can_edit: cb.getAttribute('data-type') === 'edit' ? cb.checked : null
+                });
+            });
+            // 合并同字段的 view/edit 到一条
+            var merged = {};
+            dpItems.forEach(function (it) {
+                var key = it.table_code + '\u0000' + it.field_code;
+                if (!merged[key]) { merged[key] = { table_code: it.table_code, field_code: it.field_code, can_view: false, can_edit: false }; }
+                if (it.can_view !== null) { merged[key].can_view = it.can_view; }
+                if (it.can_edit !== null) { merged[key].can_edit = it.can_edit; }
+            });
+            var dpPayload = { items: Object.keys(merged).map(function (k) { return merged[k]; }) };
+
+            var scItems = [];
+            document.querySelectorAll('input[data-role="sc"]:checked').forEach(function (cb) {
+                scItems.push({
+                    table_code: cb.getAttribute('data-table'),
+                    scope_type: cb.getAttribute('data-type'),
+                    scope_value: cb.getAttribute('data-value')
+                });
+            });
+            var scPayload = { items: scItems };
+
+            var d1 = await apiFetch('/api/roles/' + state.selectedId + '/data-perms', {
+                method: 'PUT', body: JSON.stringify(dpPayload)
+            });
+            var d2 = await apiFetch('/api/roles/' + state.selectedId + '/scope-values', {
+                method: 'PUT', body: JSON.stringify(scPayload)
+            });
+            if (d1 && d2 && d1.success && d2.success) { showToast('数据权限已保存', 'success'); }
+            else if (d1 && !d1.success) { showToast(d1.error_msg || '字段权限保存失败', 'error'); }
+            else if (d2 && !d2.success) { showToast(d2.error_msg || '值域保存失败', 'error'); }
+        }
+
+        function bindNav() {
+            document.querySelectorAll('.nav-item').forEach(function (item) {
+                item.addEventListener('click', function () {
+                    if (item.dataset.parent) {
+                        var group = item.closest('.nav-group');
+                        if (group) { group.classList.toggle('collapsed'); }
+                    } else if (item.dataset.href) {
+                        window.location.href = item.dataset.href;
+                    }
+                });
+            });
+        }
+
+        async function loadSessionInfo() {
+            try {
+                var resp = await fetch('/api/auth/me', { headers: { 'Accept': 'application/json' } });
+                var data = await resp.json();
+                if (data && data.success) {
+                    var user = data.user || {};
+                    var nameEl = document.getElementById('user-name');
+                    if (nameEl) { nameEl.textContent = (user.real_name || user.username || '') + (user.is_super ? '（超管）' : ''); }
+                }
+            } catch (e) { /* 401 由拦截逻辑处理 */ }
+        }
+
+        function bindLogout() {
+            var btn = document.getElementById('logout-btn');
+            if (!btn) { return; }
+            btn.addEventListener('click', function () {
+                fetch('/api/auth/logout', { method: 'POST' })
+                    .then(function () { window.location.href = '/login'; })
+                    .catch(function () { window.location.href = '/login'; });
+            });
+        }
+
+        document.getElementById('btn-save').addEventListener('click', saveData);
+
+        async function init() {
+            bindNav();
+            bindLogout();
+            loadSessionInfo();
+            await loadMeta();
+            var qs = new URLSearchParams(window.location.search);
+            var roleId = parseInt(qs.get('role_id'), 10);
+            if (roleId && state.roles.some(function (r) { return r.id === roleId; })) {
+                await selectRole(roleId);
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

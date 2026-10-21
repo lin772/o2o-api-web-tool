@@ -1,0 +1,45 @@
+{
+	"message_origin": "mock",
+	"sellernick": "OPPO商城",
+	"data": [
+		{
+			"exchange_receiver_province": "贵州省",
+			"order_no": "3735219367373849345",
+			"exchange_receiver_mobile": "18984339158",
+			"return_reason": "款式/规格选错",
+			"refund_type": 3,
+			"logistics_no": "",
+			"created": "2026-02-22 21:33:38",
+			"exchange_receiver_name": "李**",
+			"item_refund_amount": 0.0,
+			"exchange_receiver_city": "贵阳市",
+			"sub_order_id": "37352193673738493458425369597",
+			"exchange_receiver_address": "明珠路2号 修文县久长锦天盛世(龙山路南)",
+			"platform_refund_status": "USER_CANCELD",
+			"good_status": 0,
+			"buyer_nick": "osM395KlJGJNvaEgWTUfl2TOnwGI",
+			"return_no": "2000003027517934",
+			"complete_time": "2026-02-22 21:34:03",
+			"company_name": "",
+			"return_status": 2,
+			"modified": "2026-02-22 21:34:03",
+			"refund_amount": 0.0,
+			"exchange_receiver_district": "修文县",
+			"items": [
+				{
+					"exchange_sku_id": "8425369597",
+					"productcode": "10000520543340",
+					"return_no": "2000003027517934",
+					"return_quantity": 1,
+					"exchange_num": 1,
+					"exchange_sp_id": "10000520543340",
+					"sku_id": "8425369597",
+					"product_code": "10000520543340",
+					"sub_order_id": "37352193673738493458425369597"
+				}
+			],
+			"exchange_receiver_zip": "000000"
+		}
+	],
+	"platform": "243"
+}

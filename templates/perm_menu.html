@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>菜单权限 - 造数助手</title>
+    <style>
+        :root {
+            --bg: #f0f2f5; --card-bg: #ffffff; --topbar-bg: #1e4b8f; --sidebar-bg: #263238;
+            --sidebar-text: #b7c0c9; --sidebar-active-bg: #1e4b8f;
+            --border: #dcdfe6; --border-soft: #eef0f3; --text: #303133; --text-dim: #555861;
+            --text-mute: #909399; --accent: #1e4b8f; --primary: #2563eb; --primary-hover: #1d4ed8;
+            --red: #dc3545; --green: #16a34a; --warning: #d69e2e; --info: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased;
+        }
+
+        .topbar {
+            height: 48px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; background: var(--topbar-bg); border-bottom: 1px solid #163a6b;
+            color: #fff; flex-shrink: 0;
+        }
+        .topbar .title { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: #fff; }
+        .topbar .title .accent { color: #a7c8ff; }
+        .topbar-right { display: flex; align-items: center; gap: 18px; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-info .user-name { font-size: 13px; color: #d5e2f5; }
+        .user-info .logout-btn {
+            height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px;
+            background: rgba(255,255,255,0.12); color: #fff; font-size: 12px; cursor: pointer;
+        }
+        .user-info .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+        .layout { display: flex; height: calc(100vh - 48px); }
+
+        .sidebar {
+            width: 240px; min-width: 240px; background: var(--sidebar-bg);
+            overflow-y: auto; padding: 12px 8px; flex-shrink: 0;
+        }
+        .nav-header { padding: 8px 12px 6px; }
+        .nav-header .app-title { font-size: 14px; font-weight: 600; color: #fff; }
+        .nav-header .app-subtitle { font-size: 12px; color: var(--sidebar-text); margin-top: 3px; }
+        .nav-divider { height: 1px; background: rgba(255,255,255,0.10); margin: 10px 12px 8px; }
+        .nav-item {
+            display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 2px 0;
+            background: transparent; border: none; border-radius: 6px; color: var(--sidebar-text);
+            font-size: 13px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-item.active { background: var(--sidebar-active-bg); color: #fff; font-weight: 600; }
+        .nav-group { margin: 2px 0; }
+        .nav-parent { display: flex; align-items: center; justify-content: space-between; }
+        .nav-arrow { font-size: 12px; transition: transform 0.2s ease; }
+        .nav-group.collapsed .nav-arrow { transform: rotate(-90deg); }
+        .nav-group.collapsed .nav-sub { display: none; }
+        .nav-sub { overflow: hidden; }
+        .nav-sub-item { padding-left: 32px; font-size: 12px; }
+
+        .main { flex: 1; overflow: hidden; }
+        .perm-layout { display: flex; height: 100%; }
+
+        .list-panel { width: 280px; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .list-panel .panel-head { padding: 14px 16px; border-bottom: 1px solid var(--border-soft); font-size: 14px; font-weight: 600; }
+        .role-list { flex: 1; overflow-y: auto; }
+        .role-item { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); cursor: pointer; transition: background 0.15s ease; }
+        .role-item:hover { background: #f7f9fc; }
+        .role-item.active { background: #eaf1ff; border-left: 3px solid var(--primary); }
+        .role-item .name { font-size: 12px; color: var(--accent); }
+
+        .detail-panel { flex: 1; overflow-y: auto; padding: 20px 24px; }
+        .detail-empty { color: var(--text-mute); text-align: center; padding: 80px 0; font-size: 14px; }
+
+        .card { background: var(--card-bg); border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 16px; }
+        .card-head { padding: 14px 16px; border-bottom: 1px solid var(--border-soft); font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+        .card-body { padding: 16px; }
+
+        .group-title { font-size: 14px; font-weight: 600; color: var(--accent); margin: 4px 0 8px; display: flex; align-items: center; gap: 8px; }
+        .menu-row { display: flex; align-items: center; gap: 16px; padding: 8px 12px; border-bottom: 1px solid var(--border-soft); }
+        .menu-row:last-child { border-bottom: none; }
+        .menu-row .name { flex: 1; font-size: 13px; }
+        .menu-row .perm { display: flex; gap: 18px; }
+        .menu-row label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-dim); cursor: pointer; }
+
+        .save-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--border); padding: 12px 0; display: flex; align-items: center; gap: 12px; }
+        .save-bar .hint { font-size: 12px; color: var(--text-mute); }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: #fff;
+            color: var(--text); padding: 7px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s ease;
+        }
+        .btn:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: #fff; }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 10px 16px; border-radius: 6px; color: #fff; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); max-width: 360px; word-break: break-all; opacity: 0; transform: translateY(-10px); transition: all 0.3s ease; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background: var(--green); }
+        .toast-error { background: var(--red); }
+        .toast-warning { background: var(--warning); }
+        .toast-info { background: var(--info); }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="title">造数助手 <span class="accent">-</span> 权限管理</span>
+        <div class="topbar-right">
+            <div class="user-info">
+                <span class="user-name" id="user-name">...</span>
+                <button class="logout-btn" id="logout-btn" type="button">退出</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="nav-header">
+                <div class="app-title">WMS / 订单 造数助手</div>
+                <div class="app-subtitle">中间表 · 订单 · 回传</div>
+            </div>
+            <div class="nav-divider"></div>
+            <div class="nav-group collapsed">
+                <button class="nav-item nav-parent" data-parent="basic_config">
+                    <span>基础配置</span><span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-sub">
+                    <button class="nav-item nav-sub-item" data-href="/#env_config">环境配置</button>
+                    <button class="nav-item nav-sub-item" data-href="/#db_config">数据库配置</button>
+                    <button class="nav-item nav-sub-item" data-href="/#xxl_config">XXL-Job配置</button>
+                </div>
+            </div>
+            <div class="nav-group collapsed">
+                <button class="nav-item nav-parent" data-parent="system">
+                    <span>系统管理</span><span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-sub">
+                    <button class="nav-item nav-sub-item" data-href="/perm/user">用户管理</button>
+                    <button class="nav-item nav-sub-item" data-href="/perm/role">角色管理</button>
+                    <button class="nav-item nav-sub-item active">菜单权限</button>
+                    <button class="nav-item nav-sub-item" data-href="/perm/data">数据权限</button>
+                </div>
+            </div>
+            <button class="nav-item" data-href="/#message_data">报文主数据</button>
+            <button class="nav-item" data-href="/#stock_adjust">调整库存</button>
+            <button class="nav-item" data-href="/#platform_order">公域平台正向造单</button>
+            <button class="nav-item" data-href="/#reverse_order">公域平台逆向造单</button>
+            <button class="nav-item" data-href="/#order_copy">平台订单中间表复制</button>
+            <button class="nav-item" data-href="/#history">历史记录</button>
+        </aside>
+
+        <main class="main">
+            <div class="perm-layout">
+                <div class="list-panel">
+                    <div class="panel-head">选择角色</div>
+                    <div class="role-list" id="role-list"></div>
+                </div>
+                <div class="detail-panel">
+                    <div class="detail-empty" id="detail-empty">请在左侧选择角色，配置其可见菜单</div>
+                    <div id="detail-content" style="display:none;">
+                        <div class="card">
+                            <div class="card-head"><span id="detail-title"></span></div>
+                            <div class="card-body" id="menu-tree"></div>
+                        </div>
+                        <div class="save-bar">
+                            <button class="btn btn-primary" id="btn-save">保存菜单权限</button>
+                            <span class="hint">勾选「查看」即可进入该功能页；勾选「编辑」才可执行写操作（造单/保存）。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        var state = { roles: [], options: [], groups: [], cur: {}, selectedId: null };
+
+        function showToast(message, type) {
+            var container = document.getElementById('toast-container');
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + (type || 'info');
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(function () { toast.classList.add('show'); });
+            setTimeout(function () { toast.classList.remove('show'); setTimeout(function () { toast.remove(); }, 300); }, 3000);
+        }
+
+        async function apiFetch(url, options) {
+            var opts = Object.assign({ headers: {} }, options || {});
+            opts.headers['Content-Type'] = 'application/json';
+            var resp;
+            try { resp = await fetch(url, opts); }
+            catch (e) { showToast('网络或服务异常', 'error'); throw e; }
+            if (resp.status === 401) { window.location.href = '/login'; throw new Error('未登录'); }
+            var data = null;
+            try { data = await resp.json(); } catch (e) { data = null; }
+            if (resp.status === 403) { showToast((data && data.error_msg) || '无权访问，需要超级管理员权限', 'error'); throw new Error('forbidden'); }
+            return data;
+        }
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        async function loadMeta() {
+            var roles = await apiFetch('/api/roles');
+            state.roles = (roles && roles.data) || [];
+            var meta = await apiFetch('/api/perm/menus');
+            state.options = (meta && meta.options) || [];
+            state.groups = (meta && meta.groups) || [];
+            renderRoleList();
+        }
+
+        function renderRoleList() {
+            var el = document.getElementById('role-list');
+            el.innerHTML = '';
+            state.roles.forEach(function (r) {
+                var div = document.createElement('div');
+                div.className = 'role-item' + (r.id === state.selectedId ? ' active' : '');
+                div.innerHTML = '<div class="name">' + esc(r.role_name) + '</div>';
+                div.addEventListener('click', function () { selectRole(r.id); });
+                el.appendChild(div);
+            });
+        }
+
+        function optsByParent(code) {
+            return state.options.filter(function (o) { return (o.parent_code || '') === code; });
+        }
+
+        function getGroupChildren(groupCode) {
+            return optsByParent(groupCode);
+        }
+
+        function getStandalone() {
+            var groupCodes = state.groups.map(function (g) { return g.code; });
+            return state.options.filter(function (o) {
+                return !(o.parent_code || '') && groupCodes.indexOf(o.code) === -1;
+            });
+        }
+
+        async function selectRole(id) {
+            state.selectedId = id;
+            var role = state.roles.find(function (r) { return r.id === id; });
+            renderRoleList();
+            document.getElementById('detail-empty').style.display = 'none';
+            document.getElementById('detail-content').style.display = 'block';
+            document.getElementById('detail-title').textContent = role.role_name + ' 的菜单权限';
+
+            var cur = await apiFetch('/api/roles/' + id + '/menus');
+            state.cur = {};
+            ((cur && cur.data) || []).forEach(function (it) {
+                state.cur[it.menu_code] = { can_view: !!it.can_view, can_write: !!it.can_write };
+            });
+            renderTree();
+        }
+
+        function renderTree() {
+            var root = document.getElementById('menu-tree');
+            root.innerHTML = '';
+
+            state.groups.forEach(function (g) {
+                var children = getGroupChildren(g.code);
+                var sec = document.createElement('div');
+                sec.style.marginBottom = '20px';
+                var title = document.createElement('div');
+                title.className = 'group-title';
+                var groupCb = document.createElement('input');
+                groupCb.type = 'checkbox';
+                groupCb.id = 'group-' + g.code;
+                groupCb.addEventListener('change', function () { toggleGroup(g.code, groupCb.checked); });
+                title.appendChild(groupCb);
+                title.appendChild(document.createTextNode(g.name));
+                sec.appendChild(title);
+                children.forEach(function (o) { sec.appendChild(renderMenuRow(o)); });
+                root.appendChild(sec);
+            });
+
+            var standalones = getStandalone();
+            if (standalones.length) {
+                var sec = document.createElement('div');
+                sec.style.marginBottom = '20px';
+                var title = document.createElement('div');
+                title.className = 'group-title';
+                title.textContent = '其他功能';
+                sec.appendChild(title);
+                standalones.forEach(function (o) { sec.appendChild(renderMenuRow(o)); });
+                root.appendChild(sec);
+            }
+
+            updateGroupCheckboxes();
+        }
+
+        function isChecked(code, write) {
+            var p = state.cur[code];
+            if (!p) { return false; }
+            return write ? p.can_write : p.can_view;
+        }
+
+        function renderMenuRow(o) {
+            var row = document.createElement('div');
+            row.className = 'menu-row';
+            var nameEl = document.createElement('span');
+            nameEl.className = 'name';
+            nameEl.textContent = o.name + (o.is_write ? '' : '（只读）');
+            row.appendChild(nameEl);
+
+            var perm = document.createElement('div');
+            perm.className = 'perm';
+
+            var viewLabel = document.createElement('label');
+            var viewCb = document.createElement('input');
+            viewCb.type = 'checkbox';
+            viewCb.id = 'menu-' + o.code + '-view';
+            viewCb.checked = isChecked(o.code, false);
+            viewCb.addEventListener('change', function () {
+                setChecked(o.code, false, viewCb.checked);
+                if (!viewCb.checked && o.is_write) { setChecked(o.code, true, false); syncRow(o.code); }
+                updateGroupCheckboxes();
+            });
+            viewLabel.appendChild(viewCb);
+            viewLabel.appendChild(document.createTextNode('查看'));
+            perm.appendChild(viewLabel);
+
+            if (o.is_write) {
+                var writeLabel = document.createElement('label');
+                var writeCb = document.createElement('input');
+                writeCb.type = 'checkbox';
+                writeCb.id = 'menu-' + o.code + '-write';
+                writeCb.checked = isChecked(o.code, true);
+                writeCb.addEventListener('change', function () {
+                    setChecked(o.code, true, writeCb.checked);
+                    if (writeCb.checked) { setChecked(o.code, false, true); syncRow(o.code); }
+                    updateGroupCheckboxes();
+                });
+                writeLabel.appendChild(writeCb);
+                writeLabel.appendChild(document.createTextNode('编辑'));
+                perm.appendChild(writeLabel);
+            }
+            row.appendChild(perm);
+            return row;
+        }
+
+        function setChecked(code, write, val) {
+            if (!state.cur[code]) { state.cur[code] = { can_view: false, can_write: false }; }
+            if (write) { state.cur[code].can_write = val; } else { state.cur[code].can_view = val; }
+        }
+
+        function syncRow(code) {
+            var p = state.cur[code] || { can_view: false, can_write: false };
+            var view = document.getElementById('menu-' + code + '-view');
+            var write = document.getElementById('menu-' + code + '-write');
+            if (view) { view.checked = p.can_view; }
+            if (write) { write.checked = p.can_write; }
+        }
+
+        function toggleGroup(code, checked) {
+            var children = getGroupChildren(code);
+            children.forEach(function (o) {
+                setChecked(o.code, false, checked);
+                if (o.is_write) { setChecked(o.code, true, checked); }
+                syncRow(o.code);
+            });
+            updateGroupCheckboxes();
+        }
+
+        function updateGroupCheckboxes() {
+            state.groups.forEach(function (g) {
+                var children = getGroupChildren(g.code);
+                var cb = document.getElementById('group-' + g.code);
+                if (!cb || !children.length) { return; }
+                var allView = children.every(function (o) { return isChecked(o.code, false); });
+                var allWrite = children.every(function (o) { return !o.is_write || isChecked(o.code, true); });
+                cb.checked = allView && allWrite;
+                cb.indeterminate = !(allView && allWrite) && children.some(function (o) { return isChecked(o.code, false) || (o.is_write && isChecked(o.code, true)); });
+            });
+        }
+
+        async function saveMenus() {
+            if (!state.selectedId) { return; }
+            var items = state.options.map(function (o) {
+                var p = state.cur[o.code] || { can_view: false, can_write: false };
+                return { menu_code: o.code, can_view: p.can_view, can_write: p.can_write };
+            });
+            var data = await apiFetch('/api/roles/' + state.selectedId + '/menus', {
+                method: 'PUT', body: JSON.stringify({ items: items })
+            });
+            if (!data) { return; }
+            if (data.success) { showToast('菜单权限已保存', 'success'); }
+            else { showToast(data.error_msg || '保存失败', 'error'); }
+        }
+
+        function bindNav() {
+            document.querySelectorAll('.nav-item').forEach(function (item) {
+                item.addEventListener('click', function () {
+                    if (item.dataset.parent) {
+                        var group = item.closest('.nav-group');
+                        if (group) { group.classList.toggle('collapsed'); }
+                    } else if (item.dataset.href) {
+                        window.location.href = item.dataset.href;
+                    }
+                });
+            });
+        }
+
+        async function loadSessionInfo() {
+            try {
+                var resp = await fetch('/api/auth/me', { headers: { 'Accept': 'application/json' } });
+                var data = await resp.json();
+                if (data && data.success) {
+                    var user = data.user || {};
+                    var nameEl = document.getElementById('user-name');
+                    if (nameEl) { nameEl.textContent = (user.real_name || user.username || '') + (user.is_super ? '（超管）' : ''); }
+                }
+            } catch (e) { /* 401 由拦截逻辑处理 */ }
+        }
+
+        function bindLogout() {
+            var btn = document.getElementById('logout-btn');
+            if (!btn) { return; }
+            btn.addEventListener('click', function () {
+                fetch('/api/auth/logout', { method: 'POST' })
+                    .then(function () { window.location.href = '/login'; })
+                    .catch(function () { window.location.href = '/login'; });
+            });
+        }
+
+        document.getElementById('btn-save').addEventListener('click', saveMenus);
+
+        async function init() {
+            bindNav();
+            bindLogout();
+            loadSessionInfo();
+            await loadMeta();
+            var qs = new URLSearchParams(window.location.search);
+            var roleId = parseInt(qs.get('role_id'), 10);
+            if (roleId && state.roles.some(function (r) { return r.id === roleId; })) {
+                await selectRole(roleId);
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

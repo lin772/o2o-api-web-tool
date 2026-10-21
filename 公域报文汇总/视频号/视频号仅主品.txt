@@ -1,0 +1,84 @@
+{
+	"message_origin": "mock",
+	"sellernick": "OPPO商城",
+	"data": [
+		{
+			"post_fee": 0.0,
+			"receiver_city": "楚雄彝族自治州",
+			"num": 1,
+			"shipping_type": "0",
+			"trade_update_time": "2026-05-26 19:25:45",
+			"buyer_id": "osM395EP_SO226XInF6p6WHKABio",
+			"type": "微信",
+			"tid": "3736648950483153920",
+			"platform_order_status": "20",
+			"buy_address_id": "68ee64172098be173788723b7932cf49",
+			"plantfor_count": "0",
+			"receiver_zip": "675000",
+			"total_fee": 1199.0,
+			"settlement_fee": 990,
+			"receiver_name": "舞**",
+			"payment": 990.0,
+			"oaid": "{\"address_detail\":\"****\",\"name\":\"舞**\",\"mobile\":\"1**********\",\"type\":\"0\"}",
+			"gov_subsidy_info": {},
+			"buyer_message": "",
+			"product_discount": 209,
+			"receiver_province": "云南省",
+			"seller_memo": "",
+			"receiver_district": "楚雄市",
+			"receiver_mobile": "1**********",
+			"is_present_order": false,
+			"pay_time": "2026-05-26 19:25:43",
+			"buyer_nick": "osM395EP_SO226XInF6p6WHKABio",
+			"trade_create_time": "2026-05-26 19:25:33",
+			"activitys": [
+				{
+					"activity_code": "2632431599403035",
+					"tid": "3736648950483153920"
+				},
+				{
+					"activity_sell_count": "209",
+					"coupon_id": "2632431599403035",
+					"activity_code": "157696496",
+					"oid": "37366489504831539207348469180",
+					"type": "1",
+					"activity_discount_amount": "209",
+					"tid": "3736648950483153920"
+				}
+			],
+			"receiver_address": "****",
+			"reserve_decimal06": 2,
+			"items": [
+				{
+					"outer_sku_id": "110010349059",
+					"reserve_decimal01": 0,
+					"item_unique_id": "3736648950483153920_001",
+					"num": 1,
+					"num_iid": "10000465528722",
+					"pic_path": "https://wst.wxapp.tc.qq.com/161/20304/snscosdownload/SZ/reserved/696ee8070007a43b19a66a8d5f812f1e000000a000004f50",
+					"sku_id": "7348469180",
+					"oid": "37366489504831539207348469180",
+					"title": "OPPO A6i 手机 IP65满级生活防水 超抗摔金刚石架构 6000mAh五年耐用电池",
+					"platform_product_ship_time": "2026-05-28 19:25:43",
+					"discount_fee": 209,
+					"tid": "3736648950483153920",
+					"is_present": "false",
+					"price": 1199.0,
+					"total_fee": 1199.0,
+					"payment": 990.0,
+					"is_pre_sale": "false",
+					"status": "WAIT_SELLER_SEND_GOODS"
+				}
+			],
+			"ewaybill_order_code": "ofWcrDBwYHHCACD7Dt4BIA2i_M8n0KrV5C34D7AnJy4w-k6QeK-bQl7Z5cLydpGYVKfuaGXfKOtg",
+			"pays": [
+				{
+					"platform_pay_method": "1",
+					"pay_method": "2"
+				}
+			],
+			"status": "WAIT_SELLER_SEND_GOODS"
+		}
+	],
+	"platform": "243"
+}
