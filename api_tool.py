@@ -1793,7 +1793,7 @@ def _run_gui(initial_tab: Optional[str] = None):
     UI_FONT = fonts.ui
     UI_FONT_SM = fonts.hint
 
-    root.title("造数助手 · 订单复制 / 公域平台正向造单 / 公域平台逆向造单")
+    root.title("OMS公域造单平台 · 订单复制 / 公域平台正向造单 / 公域平台逆向造单")
     root.geometry("1180x820")
     root.minsize(980, 680)
     root.configure(bg=MAIN_BG)
@@ -1817,7 +1817,7 @@ def _run_gui(initial_tab: Optional[str] = None):
 
     app_title = tk.Label(
         nav_header,
-        text="WMS / 订单 造数助手",
+        text="OMS公域造单平台",
         font=UI_FONT_NAV,
         bg=NAV_BG,
         fg=NAV_FG,
