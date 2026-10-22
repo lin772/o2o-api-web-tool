@@ -779,17 +779,22 @@ class StockAdjustIn(BaseModel):
     sa_store_id: int = 0
     sku_ecode: str = ""
     qty: str = "1"
+    env: str = "TEST"
 
 
 @app.get("/api/shops")
-def list_shops(request: Request):
+def list_shops(request: Request, env: str = "TEST"):
     """刷新店铺：读取 cp_c_shop 表，返回店铺列表。"""
     gate = _menu_gate(request, "order_copy")
     if gate:
         return gate
+    gate = _env_gate(request, env)
+    if gate:
+        return gate
+    env_key = _resolve_env_key(env)
     manager = None
     try:
-        manager = OrderCopyManager()
+        manager = OrderCopyManager(env_key=env_key)
         if not manager.base_conn and not manager.connect_base_db():
             raise RuntimeError(f"基础库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
         shops = manager.get_all_shops()
@@ -802,14 +807,18 @@ def list_shops(request: Request):
 
 
 @app.get("/api/logic-stores")
-def list_logic_stores(request: Request, keyword: str = ""):
+def list_logic_stores(request: Request, keyword: str = "", env: str = "TEST"):
     """查询逻辑仓档案，返回可下拉选择的逻辑仓（支持按编码/名称模糊搜索）。"""
     gate = _menu_gate(request, "stock_adjust")
     if gate:
         return gate
+    gate = _env_gate(request, env)
+    if gate:
+        return gate
+    env_key = _resolve_env_key(env)
     manager = None
     try:
-        manager = StockAdjustToolManager()
+        manager = StockAdjustToolManager(env_key=env_key)
         if not manager.base_conn and not manager.connect_base_db():
             raise RuntimeError(f"基础库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
         stores = manager.get_logic_stores(keyword)
@@ -822,14 +831,18 @@ def list_logic_stores(request: Request, keyword: str = ""):
 
 
 @app.get("/api/sa-stores")
-def list_sa_stores(request: Request, logic_store_id: int):
+def list_sa_stores(request: Request, logic_store_id: int, env: str = "TEST"):
     """根据逻辑仓查询聚合仓与配销仓。"""
     gate = _menu_gate(request, "stock_adjust")
     if gate:
         return gate
+    gate = _env_gate(request, env)
+    if gate:
+        return gate
+    env_key = _resolve_env_key(env)
     manager = None
     try:
-        manager = StockAdjustToolManager()
+        manager = StockAdjustToolManager(env_key=env_key)
         if not manager.base_conn and not manager.connect_base_db():
             raise RuntimeError(f"基础库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
         if not manager.sg_conn and not manager.connect_sg_db():
@@ -851,6 +864,10 @@ def execute_stock_adjust(request: Request, payload: StockAdjustIn):
     gate = _menu_gate(request, "stock_adjust", write=True)
     if gate:
         return gate
+    gate = _env_gate(request, payload.env)
+    if gate:
+        return gate
+    env_key = _resolve_env_key(payload.env)
     if not payload.logic_store_id:
         return JSONResponse({"success": False, "error_msg": "请选择逻辑仓"}, status_code=400)
     if not payload.sa_store_id:
@@ -868,7 +885,7 @@ def execute_stock_adjust(request: Request, payload: StockAdjustIn):
 
     manager = None
     try:
-        manager = StockAdjustToolManager()
+        manager = StockAdjustToolManager(env_key=env_key)
         if not manager.base_conn and not manager.connect_base_db():
             raise RuntimeError(f"基础库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
         if not manager.sg_conn and not manager.connect_sg_db():

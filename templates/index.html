@@ -414,7 +414,7 @@
                     <button class="nav-item nav-sub-item" data-tab="xxl_config">XXL-Job配置</button>
                 </div>
             </div>
-            <div class="nav-group collapsed">
+            <div class="nav-group">
                 <button class="nav-item nav-parent" data-parent="system">
                     <span>系统管理</span><span class="nav-arrow">▾</span>
                 </button>
@@ -1381,7 +1381,7 @@
             const sel = panel ? panel.querySelector('[data-shop-select]') : null;
             if (btn) { btn.disabled = true; }
 
-            fetch('/api/shops')
+            fetch('/api/shops?env=' + encodeURIComponent(getCurrentEnv()))
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data.success) {
@@ -1747,7 +1747,7 @@
             }, 250);
         }
         function queryLogicStores(panel, keyword, openAfter) {
-            const url = '/api/logic-stores' + (keyword ? '?keyword=' + encodeURIComponent(keyword) : '');
+            const url = '/api/logic-stores?env=' + encodeURIComponent(getCurrentEnv()) + (keyword ? '&keyword=' + encodeURIComponent(keyword) : '');
             fetch(url)
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
@@ -1800,7 +1800,7 @@
             if (shareEl) { shareEl.textContent = '聚合仓'; }
             if (!logicStoreId) { return; }
 
-            fetch('/api/sa-stores?logic_store_id=' + encodeURIComponent(logicStoreId))
+            fetch('/api/sa-stores?logic_store_id=' + encodeURIComponent(logicStoreId) + '&env=' + encodeURIComponent(getCurrentEnv()))
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data.success) {
@@ -1881,7 +1881,8 @@
                     logic_store_id: Number(logicStoreId),
                     sa_store_id: Number(saStoreId),
                     sku_ecode: skuEcode,
-                    qty: qty
+                    qty: qty,
+                    env: getCurrentEnv()
                 })
             })
                 .then(function (r) { return r.json(); })
