@@ -94,6 +94,10 @@
         .panel { display: none; }
         .panel.active { display: block; }
 
+        /* 系统管理：iframe 内嵌，页面内切换不刷新 */
+        .panel.perm-panel { height: calc(100vh - 48px); margin: -16px -20px -32px; }
+        .panel.perm-panel .perm-frame { width: 100%; height: 100%; border: none; display: block; }
+
         .section {
             background: var(--card-bg); border: 1px solid var(--border-soft); border-radius: 8px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.05);
@@ -419,10 +423,10 @@
                     <span>系统管理</span><span class="nav-arrow">▾</span>
                 </button>
                 <div class="nav-sub">
-                    <button class="nav-item nav-sub-item" data-href="/perm/user" data-menu="perm_user">用户管理</button>
-                    <button class="nav-item nav-sub-item" data-href="/perm/role" data-menu="perm_role">角色管理</button>
-                    <button class="nav-item nav-sub-item" data-href="/perm/menu" data-menu="perm_menu">菜单权限</button>
-                    <button class="nav-item nav-sub-item" data-href="/perm/data" data-menu="perm_data">数据权限</button>
+                    <button class="nav-item nav-sub-item" data-tab="perm_user">用户管理</button>
+                    <button class="nav-item nav-sub-item" data-tab="perm_role">角色管理</button>
+                    <button class="nav-item nav-sub-item" data-tab="perm_menu">菜单权限</button>
+                    <button class="nav-item nav-sub-item" data-tab="perm_data">数据权限</button>
                 </div>
             </div>
             <button class="nav-item" data-tab="message_data">报文主数据</button>
@@ -436,6 +440,20 @@
         <main class="main">
 
 
+
+            <!-- ==================== 系统管理（iframe 内嵌，不整页刷新） ==================== -->
+            <section class="panel perm-panel" data-panel="perm_user">
+                <iframe class="perm-frame" data-src="/perm/user?embed=1" title="用户管理"></iframe>
+            </section>
+            <section class="panel perm-panel" data-panel="perm_role">
+                <iframe class="perm-frame" data-src="/perm/role?embed=1" title="角色管理"></iframe>
+            </section>
+            <section class="panel perm-panel" data-panel="perm_menu">
+                <iframe class="perm-frame" data-src="/perm/menu?embed=1" title="菜单权限"></iframe>
+            </section>
+            <section class="panel perm-panel" data-panel="perm_data">
+                <iframe class="perm-frame" data-src="/perm/data?embed=1" title="数据权限"></iframe>
+            </section>
 
             <!-- ==================== 平台订单中间表复制 ==================== -->
             <section class="panel" data-panel="order_copy">
@@ -825,7 +843,14 @@
 
         function switchPanel(itemId) {
             navItems.forEach(function (n) { n.classList.toggle('active', n.dataset.tab === itemId); });
-            panels.forEach(function (p) { p.classList.toggle('active', p.dataset.panel === itemId); });
+            panels.forEach(function (p) {
+                var isActive = p.dataset.panel === itemId;
+                p.classList.toggle('active', isActive);
+                if (isActive && p.classList.contains('perm-panel')) {
+                    var frame = p.querySelector('iframe.perm-frame');
+                    if (frame && !frame.src) { frame.src = frame.dataset.src; }
+                }
+            });
         }
 
         // ---------- 订单节点串联：按平台渲染（默认其他平台）----------
@@ -987,7 +1012,7 @@
         }
 
         // 支持从其它页面通过 #锚点 直达对应面板（如 /#platform_order、/#reverse_order）
-        const validTabs = ['env_config', 'db_config', 'xxl_config', 'order_copy', 'stock_adjust', 'platform_order', 'reverse_order', 'history', 'message_data'];
+        const validTabs = ['env_config', 'db_config', 'xxl_config', 'order_copy', 'stock_adjust', 'platform_order', 'reverse_order', 'history', 'message_data', 'perm_user', 'perm_role', 'perm_menu', 'perm_data'];
         const initialTab = (location.hash || '').replace('#', '');
         switchPanel(validTabs.indexOf(initialTab) >= 0 ? initialTab : 'order_copy');
 

@@ -42,6 +42,10 @@
         .user-info .logout-btn:hover { background: rgba(255,255,255,0.22); }
 
         .layout { display: flex; height: calc(100vh - 48px); }
+        /* 嵌入主页面时：隐藏自身顶栏与侧边栏，由主页面统一维护 */
+        body.embed .topbar { display: none; }
+        body.embed .sidebar { display: none; }
+        body.embed .layout { height: 100vh; }
 
         .sidebar {
             width: 240px; min-width: 240px; background: var(--sidebar-bg);
@@ -637,6 +641,8 @@
                 await selectRole(roleId);
             }
         }
+        // 嵌入模式（?embed=1）：隐藏自身顶栏与侧边栏，交给主页面统一维护
+        if (/[?&]embed=1/.test(location.search)) { document.body.classList.add('embed'); }
         init();
     </script>
 </body>
