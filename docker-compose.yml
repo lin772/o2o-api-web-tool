@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  # 服务名/容器名固定为 local-mysql，供服务器端 DB_HOST=local-mysql 在容器网络内解析。
+  local-mysql:
+    image: mysql:8.0
+    container_name: local-mysql
+    restart: unless-stopped
+    environment:
+      # 密码统一由 .env 的 DB_PASSWORD 注入，废弃旧的 DB_PASS。
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: o2o_api_db
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      # 数据目录由 .env 的 MYSQL_DATA_PATH 注入：
+      #   本地 Windows：./mysql_data
+      #   阿里云服务器：/data/o2o_mysql
+      - ${MYSQL_DATA_PATH}:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci

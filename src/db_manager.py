@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import threading
@@ -27,7 +28,7 @@ FALLBACK_MYSQL_HOST = ""
 
 _port = 3306
 _user = "root"
-_password = "123456"
+_password = os.environ.get("DB_PASSWORD", "123456")
 _db_name = "o2o_api_db"
 
 _lock = threading.Lock()
@@ -71,7 +72,25 @@ def get_wsl_docker_ip() -> str:
 
 
 def _resolve_mysql_host() -> str:
-    """解析 MySQL host，失败时打印红色警告并允许手动 fallback 或友好退出。"""
+    """解析 MySQL host。
+
+    优先级：
+    1. 环境变量 DB_HOST 有值 → 直接使用，不再执行任何探测逻辑；
+    2. 非 Windows（Linux 服务器）→ 固定返回 "local-mysql"（容器内服务名），绝不调用 wsl；
+    3. Windows 本地开发 → 保留原有 wsl 自动获取 Docker IP 的逻辑。
+    """
+    # 1. 优先读取环境变量 DB_HOST
+    env_host = (os.environ.get("DB_HOST") or "").strip()
+    if env_host:
+        print(f"使用环境变量 DB_HOST：{env_host}")
+        return env_host
+
+    # 2. 非 Windows：直接使用容器内服务名，绝不调用 wsl
+    if os.name != "nt":
+        print("当前为非 Windows 环境，使用默认 MySQL host：local-mysql")
+        return "local-mysql"
+
+    # 3. Windows：保留原有 WSL 探测逻辑，失败时友好退出或使用手动 fallback
     try:
         host = get_wsl_docker_ip()
     except Exception as exc:

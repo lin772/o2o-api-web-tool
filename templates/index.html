@@ -414,7 +414,7 @@
                     <button class="nav-item nav-sub-item" data-tab="xxl_config">XXL-Job配置</button>
                 </div>
             </div>
-            <div class="nav-group">
+            <div class="nav-group collapsed">
                 <button class="nav-item nav-parent" data-parent="system">
                     <span>系统管理</span><span class="nav-arrow">▾</span>
                 </button>
@@ -1411,7 +1411,7 @@
         function loadGlobalEnvOptions() {
             const sel = document.getElementById('global-env');
             if (!sel) { return; }
-            const cur = sel.value;
+            const cur = localStorage.getItem('o2o_current_env') || sel.value;
             fetch('/api/env-config/options')
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
@@ -1435,8 +1435,18 @@
                         sel.appendChild(opt);
                     });
                     if (items.some(function (it) { return it.value === cur; })) { sel.value = cur; }
+                    localStorage.setItem('o2o_current_env', sel.value);
                 })
                 .catch(function () { /* 保留默认选项 */ });
+        }
+
+        function bindGlobalEnvChange() {
+            const sel = document.getElementById('global-env');
+            if (!sel) { return; }
+            sel.addEventListener('change', function () {
+                localStorage.setItem('o2o_current_env', sel.value);
+                window.location.reload();
+            });
         }
 
         function forwardFields(panel) {
@@ -2840,6 +2850,7 @@
         loadDbConfigs();
         loadDbProjectOptions();
         loadGlobalEnvOptions();
+        bindGlobalEnvChange();
         loadXxlConfigs();
         loadXxlProjectOptions();
 

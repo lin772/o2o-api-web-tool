@@ -25,6 +25,13 @@
         }
         .topbar .title { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; color: #fff; }
         .topbar .title .accent { color: #a7c8ff; }
+        .topbar .global-env { display: flex; align-items: center; gap: 8px; }
+        .topbar .global-env label { font-size: 12px; color: #d5e2f5; }
+        .topbar .global-env select {
+            height: 30px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px;
+            padding: 0 8px; font-size: 13px; color: #fff; background: rgba(255,255,255,0.12); cursor: pointer;
+        }
+        .topbar .global-env option { color: #303133; }
         .topbar-right { display: flex; align-items: center; gap: 18px; }
         .user-info { display: flex; align-items: center; gap: 10px; }
         .user-info .user-name { font-size: 13px; color: #d5e2f5; }
@@ -138,6 +145,12 @@
     <div class="topbar">
         <span class="title">造数助手 <span class="accent">-</span> 权限管理</span>
         <div class="topbar-right">
+            <div class="global-env">
+                <label>环境</label>
+                <select id="global-env">
+                    <option value="TEST" selected>TEST</option>
+                </select>
+            </div>
             <div class="user-info">
                 <span class="user-name" id="user-name">...</span>
                 <button class="logout-btn" id="logout-btn" type="button">退出</button>
@@ -514,10 +527,54 @@
 
         bindRowActions();
 
+        // ---------- 右上角环境选择：跨页保持一致，切换环境整页刷新 ----------
+        function loadGlobalEnvOptions() {
+            const sel = document.getElementById('global-env');
+            if (!sel) { return; }
+            const saved = localStorage.getItem('o2o_current_env') || sel.value;
+            fetch('/api/env-config/options')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    const opts = (data && data.success) ? (data.options || []) : [];
+                    const items = [];
+                    opts.forEach(function (o) {
+                        const project = (o.project_name || '').trim();
+                        const env = (o.env || '').trim();
+                        if (!env) { return; }
+                        const value = project ? (project + '||' + env) : env;
+                        const text = project ? (project + ' / ' + env) : env;
+                        if (items.some(function (it) { return it.value === value; })) { return; }
+                        items.push({ value: value, text: text });
+                    });
+                    if (!items.length) { items.push({ value: 'TEST', text: 'TEST' }); }
+                    sel.innerHTML = '';
+                    items.forEach(function (it) {
+                        const opt = document.createElement('option');
+                        opt.value = it.value;
+                        opt.textContent = it.text;
+                        sel.appendChild(opt);
+                    });
+                    if (items.some(function (it) { return it.value === saved; })) { sel.value = saved; }
+                    localStorage.setItem('o2o_current_env', sel.value);
+                })
+                .catch(function () { /* 保留默认选项 */ });
+        }
+
+        function bindGlobalEnvChange() {
+            const sel = document.getElementById('global-env');
+            if (!sel) { return; }
+            sel.addEventListener('change', function () {
+                localStorage.setItem('o2o_current_env', sel.value);
+                window.location.reload();
+            });
+        }
+
         async function init() {
             bindNav();
             bindLogout();
             loadSessionInfo();
+            bindGlobalEnvChange();
+            loadGlobalEnvOptions();
             var r = await apiFetch('/api/roles');
             state.roles = (r && r.data) || [];
             await loadUsers();
