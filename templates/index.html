@@ -964,6 +964,26 @@
                 const group = parentBtn.closest('.nav-group');
                 if (group) { group.classList.toggle('collapsed'); }
             }
+            saveNavGroupState(parentId);
+        }
+
+        // ---------- 侧边栏分组展开状态：跨页保持，两组互相独立 ----------
+        function restoreNavGroupStates() {
+            document.querySelectorAll('.nav-group').forEach(function (group) {
+                var parentBtn = group.querySelector('.nav-parent');
+                if (!parentBtn || !parentBtn.dataset.parent) { return; }
+                var stored = localStorage.getItem('o2o_nav_' + parentBtn.dataset.parent);
+                if (stored === 'open') { group.classList.remove('collapsed'); }
+                else if (stored === 'collapsed') { group.classList.add('collapsed'); }
+            });
+        }
+
+        function saveNavGroupState(parentId) {
+            var parentBtn = document.querySelector('.nav-parent[data-parent="' + parentId + '"]');
+            if (!parentBtn) { return; }
+            var group = parentBtn.closest('.nav-group');
+            if (!group) { return; }
+            localStorage.setItem('o2o_nav_' + parentId, group.classList.contains('collapsed') ? 'collapsed' : 'open');
         }
 
         // 支持从其它页面通过 #锚点 直达对应面板（如 /#platform_order、/#reverse_order）
@@ -2837,6 +2857,9 @@
         // ---------- 初始化：登录态 + 菜单权限 + 顶栏用户信息 ----------
         bindLogout();
         loadSessionInfo();
+
+        // ---------- 初始化：恢复侧边栏分组展开状态（跨页保持）----------
+        restoreNavGroupStates();
 
         // ---------- 初始化：平台 / 场景报文联动 ----------
         initPlatformSelects();

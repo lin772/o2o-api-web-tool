@@ -530,11 +530,31 @@
                     if (item.dataset.parent) {
                         var group = item.closest('.nav-group');
                         if (group) { group.classList.toggle('collapsed'); }
+                        saveNavGroupState(item.dataset.parent);
                     } else if (item.dataset.href) {
                         window.location.href = item.dataset.href;
                     }
                 });
             });
+        }
+
+        // ---------- 侧边栏分组展开状态：跨页保持，两组互相独立 ----------
+        function restoreNavGroupStates() {
+            document.querySelectorAll('.nav-group').forEach(function (group) {
+                var parentBtn = group.querySelector('.nav-parent');
+                if (!parentBtn || !parentBtn.dataset.parent) { return; }
+                var stored = localStorage.getItem('o2o_nav_' + parentBtn.dataset.parent);
+                if (stored === 'open') { group.classList.remove('collapsed'); }
+                else if (stored === 'collapsed') { group.classList.add('collapsed'); }
+            });
+        }
+
+        function saveNavGroupState(parentId) {
+            var parentBtn = document.querySelector('.nav-parent[data-parent="' + parentId + '"]');
+            if (!parentBtn) { return; }
+            var group = parentBtn.closest('.nav-group');
+            if (!group) { return; }
+            localStorage.setItem('o2o_nav_' + parentId, group.classList.contains('collapsed') ? 'collapsed' : 'open');
         }
 
         async function loadSessionInfo() {
@@ -605,6 +625,7 @@
 
         async function init() {
             bindNav();
+            restoreNavGroupStates();
             bindLogout();
             loadSessionInfo();
             bindGlobalEnvChange();
