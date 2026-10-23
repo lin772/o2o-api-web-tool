@@ -1615,11 +1615,6 @@ class StockAdjustToolManager:
     def build_payloads(self, logic_store: Dict[str, Any], share_store: Dict[str, Any], sa_store: Dict[str, Any], sku: Optional[Dict[str, Any]], sku_ecode: str, qty: str) -> Dict[str, Dict[str, Any]]:
         qty_num = float(qty) if "." in str(qty) else int(qty)
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ad_client_id = (
-            logic_store.get("ad_client_id")
-            or logic_store.get("adClientId")
-            or self._default_ad_client_id()
-        )
         adjust_payload = {
             "table": "SG_B_STO_ADJUST",
             "objid": -1,
@@ -1627,15 +1622,14 @@ class StockAdjustToolManager:
                 "SG_B_STO_ADJUST": {
                     "ID": -1,
                     "BILL_DATE": now_str,
-                    "BILL_TYPE": 1,
-                    "CP_C_STORE_ID": logic_store.get("id"),
-                    "SG_B_ADJUST_PROP_ID": 74,
-                    "STATUS": 1,
+                    "BILL_TYPE": "1",
+                    "CP_C_STORE_ID": str(logic_store.get("id") or ""),
+                    "SG_B_ADJUST_PROP_ID": "74",
+                    "STATUS": "1",
                 },
                 "SG_B_STO_ADJUST_ITEM": [
-                    {"ID": -1, "PS_C_SKU_ECODE": sku_ecode, "QTY": qty_num},
+                    {"PS_C_SKU_ECODE": sku_ecode, "QTY": qty_num, "ID": -1},
                 ],
-                "adClientId": ad_client_id,
             },
             "id": -1,
         }

@@ -89,6 +89,11 @@ class OmsClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.verify = False
+        # 与浏览器 AJAX 请求保持一致：OMS 的 save/submit 等接口依赖这些头做鉴权/CSRF 校验
+        self.session.headers.update({
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": self.base_url + "/",
+        })
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def login(self) -> Dict[str, Any]:
