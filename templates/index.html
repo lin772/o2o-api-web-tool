@@ -1456,18 +1456,22 @@
 
         // ---------- 公域平台正向/逆向造单（复用后端 service 层）----------
         function getCurrentEnv() {
-            const stored = localStorage.getItem('o2o_current_env');
-            if (stored) { return stored; }
+            // 右上角环境下拉为唯一权威来源：切换环境后必须立即使用新环境，
+            // 绝不能回退到切换前写入的旧 localStorage 值（避免用到旧环境的授权/接口地址）。
             const envSel = document.getElementById('global-env');
-            return (envSel && envSel.value) || 'TEST';
+            if (envSel && envSel.value) {
+                try { localStorage.setItem('o2o_current_env', envSel.value); } catch (e) { /* 忽略存储异常 */ }
+                return envSel.value;
+            }
+            return localStorage.getItem('o2o_current_env') || 'TEST';
         }
 
         // ---------- 右上角环境下拉：从环境配置表取「项目名称 + 环境」组合----------
         function loadGlobalEnvOptions() {
             const sel = document.getElementById('global-env');
-            if (!sel) { return; }
+            if (!sel) { return Promise.resolve(); }
             const cur = localStorage.getItem('o2o_current_env') || sel.value;
-            fetch('/api/env-config/options')
+            return fetch('/api/env-config/options')
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     const opts = (data && data.success) ? (data.options || []) : [];
@@ -2908,14 +2912,12 @@
         initPlatformSelects();
         initScenarioSelects();
 
-        // ---------- 初始化：预加载逻辑仓（店铺由「刷新店铺」按钮触发）----------
-        loadLogicStores();
-
         // ---------- 初始化：预加载基础配置（环境配置 / 数据库配置 / XXL-Job配置）----------
         loadEnvConfigs();
         loadDbConfigs();
         loadDbProjectOptions();
-        loadGlobalEnvOptions();
+        // 先加载并恢复右上角环境下拉，再按当前环境预加载逻辑仓，确保逻辑仓/后续请求使用新环境
+        loadGlobalEnvOptions().then(function () { loadLogicStores(); });
         bindGlobalEnvChange();
         loadXxlConfigs();
         loadXxlProjectOptions();
