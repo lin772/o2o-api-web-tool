@@ -1385,15 +1385,35 @@ class StockAdjustToolManager:
         rows = self._query_base("SELECT * FROM ps_c_sku WHERE ecode = %s LIMIT 1", (sku_ecode,))
         return rows[0] if rows else None
 
+    def _oms_username(self) -> str:
+        login_cfg = self.oms_config.get("login") or {}
+        return (login_cfg.get("username") or "").strip()
+
+    def _project_name(self) -> str:
+        from settings import _parse_env_key
+
+        project, _ = _parse_env_key(self.env_key)
+        return project or ""
+
+    def _default_ad_client_id(self) -> int:
+        """adClientId 默认值：威富O2O 项目取 1，其余取 37。"""
+        if "vf_o2o" in self._project_name():
+            return 1
+        return 37
+
     def _oms_client(self):
         if self._client is not None:
             return self._client
         from oms_client import OmsClient
         login_cfg = self.oms_config.get("login") or {}
+        username = self._oms_username()
+        password = login_cfg.get("password") or ""
+        if not self.oms_config.get("base_url") or not username:
+            raise RuntimeError("OMS 配置缺失，请在「环境配置」中补充地址与账号")
         client = OmsClient(
             self.oms_config.get("base_url"),
-            login_cfg.get("username", "puchunlin"),
-            login_cfg.get("password", "Puchunlin123"),
+            username,
+            password,
         )
         client.login()
         self._client = client
@@ -1441,7 +1461,12 @@ class StockAdjustToolManager:
         item_id = self._next_sg_id("sg_b_share_allocation_item")
         bill_no = self._next_allocation_bill_no()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ad_client_id = main.get("adClientId") or payload.get("fixcolumn", {}).get("adClientId")
+        owner_name = self._oms_username()
+        ad_client_id = (
+            main.get("adClientId")
+            or payload.get("fixcolumn", {}).get("adClientId")
+            or self._default_ad_client_id()
+        )
         qty = item.get("qty") or 0
         qty_apply = item.get("qtyApply") if item.get("qtyApply") is not None else qty
         self._execute_sg(
@@ -1450,12 +1475,12 @@ class StockAdjustToolManager:
             (id, ad_client_id, ad_org_id, bill_no, bill_date, status, sg_c_share_store_id, sg_c_share_store_ecode,
              sg_c_share_store_ename, tot_row_num, tot_qty, tot_qty_apply, tot_qty_diff, tot_amt, remark, isactive,
              ownerid, ownername, creationdate, modifierid, modifiername, modifieddate)
-            VALUES (%s,%s,27,%s,%s,1,%s,%s,%s,1,%s,%s,%s,0,%s,'Y',2821,'puchunlin',%s,2821,'puchunlin',%s)
+            VALUES (%s,%s,27,%s,%s,1,%s,%s,%s,1,%s,%s,%s,0,%s,'Y',2821,%s,%s,2821,%s,%s)
             """,
             (
                 allocation_id, ad_client_id, bill_no, main.get("billDate"), main.get("sgCShareStoreId"),
                 main.get("sgCShareStoreEcode"), main.get("sgCShareStoreEname"), qty, qty_apply,
-                float(qty) - float(qty_apply), main.get("remark"), now, now,
+                float(qty) - float(qty_apply), main.get("remark"), owner_name, now, owner_name, now,
             ),
         )
         self._execute_sg(
@@ -1466,14 +1491,14 @@ class StockAdjustToolManager:
              ps_c_pro_ecode, ps_c_pro_ename, ps_c_spec1_id, ps_c_spec1_ecode, ps_c_spec1_ename,
              ps_c_spec2_id, ps_c_spec2_ecode, ps_c_spec2_ename, qty, qty_apply, qty_diff, amt, isactive,
              ownerid, ownername, creationdate, modifierid, modifiername, modifieddate)
-            VALUES (%s,%s,27,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,'Y',2821,'puchunlin',%s,2821,'puchunlin',%s)
+            VALUES (%s,%s,27,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,'Y',2821,%s,%s,2821,%s,%s)
             """,
             (
                 item_id, ad_client_id, item.get("sgCSaStoreId"), item.get("sgCSaStoreEcode"), item.get("sgCSaStoreEname"),
                 allocation_id, item.get("psCSkuId"), item.get("psCSkuEcode"), item.get("gbcode"), item.get("psCBrandId"),
                 item.get("psCProId"), item.get("psCProEcode"), item.get("psCProEname"), item.get("psCSpec1Id"),
                 item.get("psCSpec1Ecode"), item.get("psCSpec1Ename"), item.get("psCSpec2Id"), item.get("psCSpec2Ecode"),
-                item.get("psCSpec2Ename"), qty, qty_apply, float(qty) - float(qty_apply), now, now,
+                item.get("psCSpec2Ename"), qty, qty_apply, float(qty) - float(qty_apply), owner_name, now, owner_name, now,
             ),
         )
         return {"status_code": 200, "body": {"code": 0, "message": "success", "data": {"objid": allocation_id, "billNo": bill_no}}, "payload": payload}
@@ -1590,7 +1615,11 @@ class StockAdjustToolManager:
     def build_payloads(self, logic_store: Dict[str, Any], share_store: Dict[str, Any], sa_store: Dict[str, Any], sku: Optional[Dict[str, Any]], sku_ecode: str, qty: str) -> Dict[str, Dict[str, Any]]:
         qty_num = float(qty) if "." in str(qty) else int(qty)
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ad_client_id = logic_store.get("ad_client_id") or logic_store.get("adClientId")
+        ad_client_id = (
+            logic_store.get("ad_client_id")
+            or logic_store.get("adClientId")
+            or self._default_ad_client_id()
+        )
         adjust_payload = {
             "table": "SG_B_STO_ADJUST",
             "objid": -1,
