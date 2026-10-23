@@ -1399,19 +1399,6 @@ class StockAdjustToolManager:
         self._client = client
         return client
 
-    def _sync_adjust_ad_client_id(self, adjust_id: int, ad_client_id: Any) -> Dict[str, Any]:
-        if not adjust_id or not ad_client_id:
-            return {"updated": False, "message": "缺少库存调整单ID或adClientId"}
-        head_count = self._execute_sg(
-            "UPDATE sg_b_sto_adjust SET ad_client_id = %s WHERE id = %s",
-            (ad_client_id, adjust_id),
-        )
-        item_count = self._execute_sg(
-            "UPDATE sg_b_sto_adjust_item SET ad_client_id = %s WHERE sg_b_sto_adjust_id = %s",
-            (ad_client_id, adjust_id),
-        )
-        return {"updated": True, "adClientId": ad_client_id, "head_count": head_count, "item_count": item_count}
-
     def _sync_allocation_ad_client_id(self, allocation_id: int, ad_client_id: Any) -> Dict[str, Any]:
         if not allocation_id or not ad_client_id:
             return {"updated": False, "message": "缺少分货单ID或adClientId"}
@@ -1600,52 +1587,28 @@ class StockAdjustToolManager:
             item["reason"] = cls._failure_reason(response)
         return item
 
-    @staticmethod
-    def _sku_fields(sku: Optional[Dict[str, Any]], sku_ecode: str) -> Dict[str, Any]:
-        sku = sku or {}
-        return {
-            "psCSkuId": sku.get("id"),
-            "psCSkuEcode": sku.get("ecode") or sku_ecode,
-            "psCProId": sku.get("ps_c_pro_id"),
-            "psCProEcode": sku.get("ps_c_pro_ecode") or sku.get("pro_ecode"),
-            "psCProEname": sku.get("pro_name") or sku.get("ps_c_pro_ename"),
-            "psCSpec1Id": sku.get("ps_c_spec1_id"),
-            "psCSpec1Ecode": sku.get("ps_c_spec1_ecode"),
-            "psCSpec1Ename": sku.get("ps_c_spec1_ename"),
-            "psCSpec2Id": sku.get("ps_c_spec2_id"),
-            "psCSpec2Ecode": sku.get("ps_c_spec2_ecode"),
-            "psCSpec2Ename": sku.get("ps_c_spec2_ename"),
-        }
-
     def build_payloads(self, logic_store: Dict[str, Any], share_store: Dict[str, Any], sa_store: Dict[str, Any], sku: Optional[Dict[str, Any]], sku_ecode: str, qty: str) -> Dict[str, Dict[str, Any]]:
         qty_num = float(qty) if "." in str(qty) else int(qty)
-        today = datetime.now().strftime("%Y-%m-%d")
-        sku_fields = self._sku_fields(sku, sku_ecode)
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ad_client_id = logic_store.get("ad_client_id") or logic_store.get("adClientId")
         adjust_payload = {
-            "adClientId": ad_client_id,
+            "table": "SG_B_STO_ADJUST",
+            "objid": -1,
             "data": {
                 "SG_B_STO_ADJUST": {
-                    "id": -1,
-                    "adClientId": ad_client_id,
-                    "billDate": today,
-                    "stockDate": today,
-                    "cpCStoreId": logic_store.get("id"),
-                    "cpCStoreEcode": logic_store.get("ecode"),
-                    "cpCStoreEname": logic_store.get("ename"),
-                    "billType": 1,
-                    "remark": "测试工具自动生成库存调整单",
+                    "ID": -1,
+                    "BILL_DATE": now_str,
+                    "BILL_TYPE": 1,
+                    "CP_C_STORE_ID": logic_store.get("id"),
+                    "SG_B_ADJUST_PROP_ID": 74,
+                    "STATUS": 1,
                 },
-                "SG_B_STO_ADJUST_ITEM": [dict({
-                    "id": -1,
-                    "adClientId": ad_client_id,
-                    "cpCStoreId": logic_store.get("id"),
-                    "cpCStoreEcode": logic_store.get("ecode"),
-                    "cpCStoreEname": logic_store.get("ename"),
-                    "qty": qty_num,
-                    "priceList": 0,
-                }, **sku_fields)],
-            }
+                "SG_B_STO_ADJUST_ITEM": [
+                    {"ID": -1, "PS_C_SKU_ECODE": sku_ecode, "QTY": qty_num},
+                ],
+                "adClientId": ad_client_id,
+            },
+            "id": -1,
         }
         allocation_main = {
             "BILL_DATE": datetime.now().strftime("%Y%m%d"),
@@ -1683,8 +1646,6 @@ class StockAdjustToolManager:
         steps.append(self._business_step("库存调整单保存", adjust_save))
         adjust_id = self._extract_id(adjust_save["body"])
         if adjust_id:
-            adjust_client_sync = self._sync_adjust_ad_client_id(adjust_id, payloads["adjust_save"].get("adClientId"))
-            raw_steps.append({"step": "同步库存调整单adClientId", **adjust_client_sync})
             adjust_submit_payload = {"objId": adjust_id, "id": adjust_id, "ids": [adjust_id]}
             adjust_submit = self._post_json(client, "/api/cs/sg/v2/sgBStoAdjust/submit", adjust_submit_payload)
             raw_steps.append({"step": "库存调整单提交", **adjust_submit})

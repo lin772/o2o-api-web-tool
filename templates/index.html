@@ -1013,7 +1013,7 @@
 
         // 支持从其它页面通过 #锚点 直达对应面板（如 /#platform_order、/#reverse_order）
         const validTabs = ['env_config', 'db_config', 'xxl_config', 'order_copy', 'stock_adjust', 'platform_order', 'reverse_order', 'history', 'message_data', 'perm_user', 'perm_role', 'perm_menu', 'perm_data'];
-        const initialTab = (location.hash || '').replace('#', '');
+        const initialTab = (location.hash || '').replace('#', '') || localStorage.getItem('o2o_current_tab') || 'order_copy';
         switchPanel(validTabs.indexOf(initialTab) >= 0 ? initialTab : 'order_copy');
 
         // ---------- Toast 全局提示（替代原生 alert）----------
@@ -1076,15 +1076,23 @@
                 });
                 if (!visible) { group.style.display = 'none'; }
             });
-            // 切换到第一个可见的面板（仅 data-tab 项）
-            var firstTab = null;
-            navItems.forEach(function (item) {
-                if (!firstTab && item.dataset.tab && item.style.display !== 'none') {
-                    firstTab = item.dataset.tab;
+            // 保持当前所在面板（切环境刷新后不跳菜单）；仅当当前面板被权限隐藏时才回退到第一个可见面板
+            var currentNav = document.querySelector('.nav-item.active[data-tab]');
+            var currentTab = currentNav && currentNav.dataset.tab;
+            var currentVisible = currentTab && validTabs.indexOf(currentTab) >= 0 &&
+                Array.prototype.some.call(navItems, function (item) {
+                    return item.dataset.tab === currentTab && item.style.display !== 'none';
+                });
+            if (!currentVisible) {
+                var firstTab = null;
+                navItems.forEach(function (item) {
+                    if (!firstTab && item.dataset.tab && item.style.display !== 'none') {
+                        firstTab = item.dataset.tab;
+                    }
+                });
+                if (firstTab && validTabs.indexOf(firstTab) >= 0) {
+                    switchPanel(firstTab);
                 }
-            });
-            if (firstTab && validTabs.indexOf(firstTab) >= 0) {
-                switchPanel(firstTab);
             }
         }
 
@@ -1448,6 +1456,8 @@
 
         // ---------- 公域平台正向/逆向造单（复用后端 service 层）----------
         function getCurrentEnv() {
+            const stored = localStorage.getItem('o2o_current_env');
+            if (stored) { return stored; }
             const envSel = document.getElementById('global-env');
             return (envSel && envSel.value) || 'TEST';
         }
@@ -1490,8 +1500,16 @@
             if (!sel) { return; }
             sel.addEventListener('change', function () {
                 localStorage.setItem('o2o_current_env', sel.value);
+                localStorage.setItem('o2o_current_tab', getCurrentTab());
                 window.location.reload();
             });
+        }
+
+        function getCurrentTab() {
+            const active = document.querySelector('.nav-item.active[data-tab]');
+            if (active && active.dataset.tab) { return active.dataset.tab; }
+            const panel = document.querySelector('.panel.active[data-panel]');
+            return (panel && panel.dataset.panel) || 'order_copy';
         }
 
         function forwardFields(panel) {
