@@ -361,6 +361,23 @@ def init_db() -> None:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录会话表'
                 """
             )
+            # ------------------------------------------------------------------
+            # 日期 + 5 位自增流水号生成器底层表：一行代表一个"取号隔离维度"。
+            #   隔离维度 = env_tag + 截取前缀 + yyyyMMdd
+            # 主键 seq_key 即为该维度的复合键；current_no 记录该维度已分配到的当前流水号。
+            # 取号时通过 INSERT ... ON DUPLICATE KEY UPDATE 原子推进，天生并发安全。
+            # 表建在公共库 o2o_api_db，多环境 / 多实例共享，不依赖进程内内存缓存。
+            # ------------------------------------------------------------------
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS id_seq_generator (
+                    seq_key VARCHAR(128) NOT NULL COMMENT '隔离维度: env_tag + 前缀 + yyyyMMdd',
+                    current_no BIGINT NOT NULL DEFAULT 0 COMMENT '当前已分配到的最大流水号',
+                    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                    PRIMARY KEY (seq_key)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='日期流水号生成器表'
+                """
+            )
             conn.commit()
         finally:
             conn.close()
@@ -1094,3 +1111,153 @@ def get_xxl_configs_with_password() -> list:
         finally:
             conn.close()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# auto_shard_key_tid 生成器：【固定前缀 + yyyyMMdd + 5 位补零自增流水号】
+# ---------------------------------------------------------------------------
+# 需求约束：
+#   1. 禁止雪花算法、禁止 UUID、也废弃上一版「纯号段」预取方案。
+#   2. 前缀 = 原始单号前 6 位（固定 6 位、最少 4 位，永远不变）。
+#   3. 隔离维度 = env_tag + 前缀 + yyyyMMdd：同环境、同前缀、同一天内流水原子自增；
+#      跨天（seq_key 中的日期变化）自动从 00001 重新开始。
+#   4. 复用本项目已有 DB 会话（本模块 _connect()，连公共库 o2o_api_db），不新建连接。
+#   5. 并发安全：INSERT ... ON DUPLICATE KEY UPDATE current_no = LAST_INSERT_ID(current_no+1)
+#      由 InnoDB 行锁保证同一 seq_key 串行推进；不同 seq_key（环境/前缀/日期不同）互不阻塞。
+#      因此 A 库内部唯一、B 库内部唯一，A/B 之间允许重复（各自 seq_key 不同）。
+# ---------------------------------------------------------------------------
+
+# 5 位流水号上限；达到该值即视为「当日该前缀序号耗尽」。
+_SEQ_MAX = 99999
+
+
+class IdGeneratorError(RuntimeError):
+    """流水号生成器专属异常，便于上层对取号失败做清晰、可识别的区分。"""
+
+
+def _build_seq_key(env_tag: str, prefix: str, ymd: str) -> str:
+    """拼装隔离维度 seq_key（主键），各段用短横线分隔，保证跨维度不会互相覆盖。"""
+    return f"{env_tag}-{prefix}-{ymd}"
+
+
+def get_next_tid(origin_tid: str, env_tag: str) -> str:
+    """生成下一个 auto_shard_key_tid，格式【固定前缀 + yyyyMMdd + 5 位补零流水号】。
+
+    业务规则（与需求逐条对应）：
+      - 入参 origin_tid：原始单号字符串，统一截取前 6 位作为固定前缀（永远不变）；
+      - 入参 env_tag：环境标识，如 env_A / env_B，作为取号隔离维度的第一级；
+      - 尾部 = 当天 yyyyMMdd + 5 位流水号（从 00001 开始，不足 5 位左侧补 0）；
+      - 同 env_tag + 同前缀 + 同一天，流水号原子自增；跨天自动重置为 00001；
+      - 当流水号达到 99999 时抛出 IdGeneratorError，提示当日该前缀序号耗尽。
+
+    返回字符串：避免 19 位以上的长数字在 JSON / JavaScript 层丢失精度。
+
+    底层表 id_seq_generator（公共库 o2o_api_db）：
+        seq_key    主键 = env_tag + 前缀 + yyyyMMdd（唯一索引兜底）
+        current_no 该维度当前已分配到的最大流水号
+
+    原子取号实现（MySQL 经典技巧）：
+        INSERT INTO id_seq_generator (seq_key, current_no)
+        VALUES (%s, LAST_INSERT_ID(1))
+        ON DUPLICATE KEY UPDATE current_no = LAST_INSERT_ID(current_no + 1);
+        SELECT LAST_INSERT_ID();
+      - 首次插入：current_no = LAST_INSERT_ID(1)，LAST_INSERT_ID() 返回 1；
+      - 后续：ON DUPLICATE KEY UPDATE 把 current_no+1 喂给 LAST_INSERT_ID()，
+        原子自增的同时把新值暂存到会话变量，随后 SELECT 取回。
+
+    并发说明：LAST_INSERT_ID() 是连接级会话变量；每次调用独立 _connect() 拿到独立连接，
+    天然隔离。同一 seq_key 的并发由 InnoDB 对主键行的排他锁串行化，不会重复取号。
+
+    异常：
+      - IdGeneratorError：入参非法 / 序号耗尽 / 数据库异常（含主键重复兜底）。
+
+    调用示例：
+        from src import db_manager
+
+        # 同一原始单号、同一天内连续取号，流水号严格递增
+        tid1 = db_manager.get_next_tid("888246666621927407", "env_A")
+        # -> "8882462026102300001"
+        tid2 = db_manager.get_next_tid("888246666621927407", "env_A")
+        # -> "8882462026102300002"
+
+        # 不同前缀起各自独立的 5 位流水
+        tid3 = db_manager.get_next_tid("3379215005", "env_B")
+        # -> "3379212026102300001"
+    """
+    # ---- 入参校验 ---------------------------------------------------------
+    if origin_tid is None:
+        raise IdGeneratorError("origin_tid 不能为 None。")
+    if not isinstance(origin_tid, str):
+        raise IdGeneratorError(
+            f"origin_tid 必须为字符串，实际类型：{type(origin_tid).__name__}。"
+        )
+    origin_tid = origin_tid.strip()
+    if not origin_tid:
+        raise IdGeneratorError("origin_tid 不能为空字符串。")
+
+    if env_tag is None:
+        raise IdGeneratorError("env_tag 不能为 None。")
+    if not isinstance(env_tag, str):
+        raise IdGeneratorError(
+            f"env_tag 必须为字符串，实际类型：{type(env_tag).__name__}。"
+        )
+    env_tag = env_tag.strip()
+    if not env_tag:
+        raise IdGeneratorError("env_tag 不能为空字符串。")
+
+    # ---- 截取固定前缀（前 6 位；原始单号不足 6 位时按实际长度截取） -------
+    # 业务上原始单号均为 6 位以上的纯数字；这里保留 len>=4 的最低约束。
+    if len(origin_tid) < 4:
+        raise IdGeneratorError(
+            f"origin_tid 长度不足 4 位，无法截取有效前缀：{origin_tid!r}。"
+        )
+    prefix = origin_tid[:6]
+
+    # ---- 当天日期 yyyyMMdd ------------------------------------------------
+    ymd = datetime.now().strftime("%Y%m%d")
+
+    # 确保公共库 id_seq_generator 表已就绪（幂等）。
+    init_db()
+
+    seq_key = _build_seq_key(env_tag, prefix, ymd)
+
+    # ---- 原子取号 ---------------------------------------------------------
+    conn = _connect()
+    try:
+        conn.execute(
+            "INSERT INTO id_seq_generator (seq_key, current_no) "
+            "VALUES (%s, LAST_INSERT_ID(1)) "
+            "ON DUPLICATE KEY UPDATE current_no = LAST_INSERT_ID(current_no + 1)",
+            (seq_key,),
+        )
+        cur = conn.execute("SELECT LAST_INSERT_ID() AS seq_no")
+        row = cur.fetchone()
+        if row is None or row.get("seq_no") is None:
+            raise IdGeneratorError(f"取号失败：无法读取流水号，seq_key={seq_key!r}。")
+        seq = int(row["seq_no"])
+
+        # 限制判断：达到/超过 5 位流水上限即视为当日该前缀序号耗尽。
+        if seq >= _SEQ_MAX:
+            raise IdGeneratorError(
+                f"当日该前缀序号已耗尽（seq_key={seq_key!r}，流水号已到 {seq}）。"
+            )
+
+        conn.commit()
+    except IdGeneratorError:
+        conn.rollback()
+        raise
+    except pymysql.err.IntegrityError as exc:
+        # 数据库唯一索引（seq_key 主键）兜底：极端并发下若仍发生重复，转为清晰异常。
+        conn.rollback()
+        raise IdGeneratorError(
+            f"流水号主键冲突（唯一索引兜底触发），seq_key={seq_key!r}：{exc}"
+        ) from exc
+    except Exception as exc:
+        conn.rollback()
+        raise IdGeneratorError(f"生成 auto_shard_key_tid 失败（seq_key={seq_key!r}）：{exc}") from exc
+    finally:
+        conn.close()
+
+    # 拼接最终格式：前缀 + yyyyMMdd + 5 位补零流水号。
+    # 例：前缀 888246 + 20261023 + 流水 1 -> "8882462026102300001"
+    return f"{prefix}{ymd}{seq:05d}"

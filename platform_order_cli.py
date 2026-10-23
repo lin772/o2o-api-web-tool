@@ -11,7 +11,13 @@ import time
 from urllib.parse import urljoin
 
 from message_service import build_preview_message, detect_message_family, format_message_json
-from order_service import finalize_build_for_insert, insert_source, query_shops, run_transfer
+from order_service import (
+    allocate_and_regenerate,
+    finalize_build_for_insert,
+    insert_source,
+    query_shops,
+    run_transfer,
+)
 from ip_order_service import insert_jingdong_order, insert_taobao_order
 from oms_client import OmsClient
 from settings import get_env_config, list_env_keys, list_platform_folders, list_scenarios, load_config
@@ -43,11 +49,13 @@ def main(argv=None) -> int:
 
     family = detect_message_family(build.mq_message)
     if family in ("jdp_array", "jdp_object"):
-        mid, tid = insert_taobao_order(args.env, build.mq_message, shop)
+        editor_mq, _new_tid = allocate_and_regenerate(args.env, build.mq_message)
+        mid, tid = insert_taobao_order(args.env, editor_mq, shop)
         print("淘宝订单已写入中间表 ip_b_taobao_order id", mid, "tid", tid)
         return 0
     if family == "jd_array":
-        mid, order_id = insert_jingdong_order(args.env, build.mq_message, shop)
+        editor_mq, _order_id = allocate_and_regenerate(args.env, build.mq_message)
+        mid, order_id = insert_jingdong_order(args.env, editor_mq, shop)
         print("京东订单已写入中间表 ip_b_jingdong_order id", mid, "orderId", order_id)
         return 0
 

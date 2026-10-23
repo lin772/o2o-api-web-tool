@@ -26,6 +26,7 @@ from message_service import (
     parse_message_text,
 )
 from order_service import (
+    allocate_and_regenerate,
     finalize_build_for_insert,
     format_db_error,
     insert_source,
@@ -691,6 +692,7 @@ class PlatformOrderApp:
                 from ip_order_service import insert_taobao_order, insert_jingdong_order
 
                 if family in ("jdp_array", "jdp_object"):
+                    editor_mq, _new_tid = allocate_and_regenerate(self._env_key(), editor_mq)
                     mid, tid = insert_taobao_order(self._env_key(), editor_mq, shop)
                     lines = [
                         f"淘宝订单已写入中间表 ip_b_taobao_order id={mid}",
@@ -705,6 +707,7 @@ class PlatformOrderApp:
                     return
 
                 if family == "jd_array":
+                    editor_mq, _order_id = allocate_and_regenerate(self._env_key(), editor_mq)
                     mid, order_id = insert_jingdong_order(self._env_key(), editor_mq, shop)
                     lines = [
                         f"京东订单已写入中间表 ip_b_jingdong_order id={mid}",

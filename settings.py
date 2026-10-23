@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -30,6 +31,32 @@ def load_config() -> Dict[str, Any]:
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return data
+
+
+def derive_env_tag(env_key: str, cfg: Optional[Dict[str, Any]] = None) -> str:
+    """把环境 key 稳定派生为取号隔离维度 env_tag（如 env_A / env_B）。
+
+    取号要求「A 库内部唯一、B 库内部唯一，A/B 之间允许重复」，隔离维度即
+    env_tag。当前工程里的 env_key 形如「项目名称||环境」（小写），并没有现成的
+    env_A/env_B 标签，因此这里做稳定派生：
+
+      1. 若 config/config.yaml 里配置了 env_tag_map（env_key -> env_tag 的显式映射），
+         优先按配置返回，可精确指定 env_A / env_B；
+      2. 否则把 env_key 归一化：小写 + 非字母数字字符折叠为下划线，去掉首尾下划线；
+      3. 归一化后为空则退回 "default"。
+
+    归一化保证同一环境每次取号得到相同 env_tag，且不同环境得到不同 env_tag，
+    从而天然满足「同环境同前缀同一天原子自增、不同环境互相隔离」的约束。
+    """
+    cfg = cfg or load_config()
+    env_tag_map = (cfg.get("env_tag_map") or {}) if isinstance(cfg, dict) else {}
+    key = (env_key or "").strip()
+    if key and isinstance(env_tag_map, dict) and key in env_tag_map:
+        mapped = str(env_tag_map[key]).strip()
+        if mapped:
+            return mapped
+    normalized = re.sub(r"[^0-9a-zA-Z]+", "_", key.lower()).strip("_")
+    return normalized or "default"
 
 
 def _env_rows() -> List[Dict[str, Any]]:

@@ -13,9 +13,9 @@ try:
 except ImportError as e:
     raise ImportError("请先安装 pymysql") from e
 
-from message_service import BuildResult, replace_tid_deep, extract_tid
+from message_service import BuildResult, extract_tid, regenerate_order_numbers
 from oms_client import OmsClient
-from settings import db_connect_options, get_env_config, load_config
+from settings import db_connect_options, derive_env_tag, get_env_config, load_config
 
 _TRANSIENT_DB_ERR = {2006, 2013}
 
@@ -186,18 +186,27 @@ def query_skus(
     return _with_db_retry(env_key, "base_db", run)
 
 
-def alloc_tid(order_conn) -> str:
-    with order_conn.cursor() as cur:
-        # tid 是 varchar，实际订单号可达 20+ 位（超出 BIGINT UNSIGNED），
-        # 不能用 CAST(tid AS UNSIGNED)（会溢出成 2^64-1）。按长度+字典序对纯数字串求最大即可。
-        cur.execute(
-            "SELECT tid FROM IP_B_PLATFORM_ORDER_SOURCE "
-            "WHERE tid REGEXP '^[0-9]+$' "
-            "ORDER BY LENGTH(tid) DESC, tid DESC LIMIT 1"
-        )
-        row = cur.fetchone()
-        base = int(row["tid"]) if row else 6900000000000000000
-        return str(base + 1)
+def allocate_and_regenerate(env_key: str, editor_mq: Any) -> Tuple[Any, str]:
+    """分配【固定前缀 + yyyyMMdd + 5 位流水】新单号，并按平台替换原单号/子单号。
+
+    流程：
+      1. 从编辑区报文提取原单号 origin_tid（淘宝=trede tid、京东=orderId、
+         standplat=data[].tid）；
+      2. 由 env_key 派生取号隔离维度 env_tag（A 库/B 库隔离）；
+      3. 复用公共库 session 的 get_next_tid 原子取号（返回字符串，避免精度丢失）；
+      4. 按平台把「=原单号」的单号/子单号/赠品挂靠全部替换为新单号。
+
+    返回 (替换后的报文, 新主单号 new_tid)。
+    """
+    from src import db_manager
+
+    origin_tid = extract_tid(editor_mq)
+    if not origin_tid:
+        raise ValueError("无法从报文中识别 tid，无法分配新单号")
+    env_tag = derive_env_tag(env_key)
+    new_tid = db_manager.get_next_tid(origin_tid, env_tag)
+    mq_final = regenerate_order_numbers(editor_mq, origin_tid, new_tid)
+    return mq_final, new_tid
 
 
 def alloc_source_id(order_conn) -> int:
@@ -312,16 +321,8 @@ def finalize_build_for_insert(
     build: BuildResult,
     editor_mq: Any,
 ) -> Tuple[str, str]:
-    """分配真实 tid，同步替换编辑区报文与 db_message。"""
-    env = get_env_config(env_key, load_config())
-    order_conn = db_connect(env["order_db"])
-    try:
-        new_tid = alloc_tid(order_conn)
-    finally:
-        order_conn.close()
-
-    preview_tid = build.tid
-    mq_final = replace_tid_deep(editor_mq, preview_tid, new_tid)
+    """分配新单号 + 按平台替换子单号，返回 (db_message, 新主单号)。"""
+    mq_final, new_tid = allocate_and_regenerate(env_key, editor_mq)
     family = "standplat" if isinstance(mq_final, dict) and "data" in mq_final else "other"
     if family == "standplat":
         from message_service import build_standplat_db_message

@@ -151,6 +151,218 @@ def replace_tid_deep(obj: Any, old: str, new: str) -> Any:
     return obj
 
 
+def _replace_values_deep(obj: Any, mapping: Dict[str, str]) -> Any:
+    """按值深度替换，全程保留字符串，避免长订单号被转回 int 丢失精度。
+
+    需求点：19 位主单号、21 位子单号（主单号 + 两位序号）都远超 BIGINT 上限，
+    必须维持字符串，否则 JSON 序列化 / 落库会精度溢出。旧 replace_tid_deep 里
+    ``str(type(obj))`` 恒为真、会把新字符串再转回 int，这里不复用它的数值分支。
+
+    规则：
+      - dict / list：递归处理；bool 原样返回（bool 是 int 子类，需先行拦截）。
+      - int：其十进制字符串若命中 mapping，返回对应新字符串，否则原值。
+      - float：整数值按 int 的字符串比较，非整数值用 str 比较；否则原样保留。
+      - str：按 key 做子串替换（覆盖 snapshot_url、gift_mids、kd_child_discount_fee
+        这类「内嵌订单号」的复合字段）；key 按长度降序替换，避免短 key 先命中。
+    """
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, dict):
+        return {k: _replace_values_deep(v, mapping) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_replace_values_deep(v, mapping) for v in obj]
+    if isinstance(obj, int):
+        return mapping.get(str(obj), obj)
+    if isinstance(obj, float):
+        s = str(int(obj)) if obj.is_integer() else str(obj)
+        return mapping.get(s, obj)
+    if isinstance(obj, str):
+        out = obj
+        for old in sorted(mapping, key=len, reverse=True):
+            if old in out:
+                out = out.replace(old, mapping[old])
+        return out
+    return obj
+
+
+def _oid(obj: Any) -> str:
+    """取子单号（oid），优先 oid 字段，回退 oid_str；返回字符串。"""
+    if not isinstance(obj, dict):
+        return ""
+    v = obj.get("oid")
+    if v is None or v == "":
+        v = obj.get("oid_str")
+    return "" if v is None or v == "" else str(v)
+
+
+def _is_gift(obj: Any) -> bool:
+    """判断一个明细是否赠品。
+
+    淘宝用 is_free_gift，其他平台（standplat）用 is_present；
+    注意淘宝主品上的 has_gift 表示「该主品挂了赠品」，不是赠品本身，故不参与判断。
+    """
+    if not isinstance(obj, dict):
+        return False
+    for key in ("is_free_gift", "is_present"):
+        v = obj.get(key)
+        if v is None:
+            continue
+        if str(v).lower() in ("true", "1"):
+            return True
+    return False
+
+
+def _gift_ref(obj: Any) -> str:
+    """返回赠品挂靠主品的子单号索引（各平台字段名不同）。
+
+    优先 gift_main_oid（standplat），其次 gift_mids（淘宝，赠品侧指向主品 oid），
+    最后 os_fg_item_id（部分淘宝赠品侧指向主品 oid）作为兜底。
+    """
+    if not isinstance(obj, dict):
+        return ""
+    for key in ("gift_main_oid", "gift_mids", "os_fg_item_id"):
+        v = obj.get(key)
+        if isinstance(v, (list, tuple)):
+            v = v[0] if v else ""
+        if v is None or v == "":
+            continue
+        return str(v)
+    return ""
+
+
+def _trade_orders(trade: Any) -> List[Dict[str, Any]]:
+    """淘宝 trade.orders.order 可能为 list 或单个 dict，统一归一化为 list。"""
+    if not isinstance(trade, dict):
+        return []
+    orders = trade.get("orders")
+    if not isinstance(orders, dict):
+        return []
+    o = orders.get("order")
+    if o is None:
+        return []
+    return o if isinstance(o, list) else [o]
+
+
+def _renumber_mains(mains: List[Dict[str, Any]], new_tid: str) -> Dict[str, str]:
+    """给主品明细编号：单主品 -> new_tid；多主品 -> new_tid + 两位序号（01 起）。
+
+    返回 {旧 oid: 新 oid} 映射，供赠品按挂靠主品复用同一新子单号。
+    """
+    single = len(mains) <= 1
+    mapping: Dict[str, str] = {}
+    for i, m in enumerate(mains, start=1):
+        old_oid = _oid(m)
+        if not old_oid:
+            continue
+        new_oid = new_tid if single else f"{new_tid}{i:02d}"
+        mapping[old_oid] = new_oid
+    return mapping
+
+
+def _regenerate_taobao(raw: Any, origin_tid: str, new_tid: str) -> Any:
+    """淘宝（jdp_array / jdp_object）：重建主单号 + 子单号 oid + 赠品挂靠。
+
+    trade.orders.order[] 里按 is_free_gift 区分主品/赠品；赠品 oid 复用其挂靠
+    主品的新 oid（gift_mids 反向引用主品 oid）。全部字段（tid/tid_str/oid/oid_str/
+    gift_mids/snapshot_url/service_tags/promotion.id 等）由一次深度按值替换统一覆盖。
+    """
+    entries = raw if isinstance(raw, list) else [raw]
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        mapping: Dict[str, str] = {origin_tid: new_tid}
+        trade: Any = None
+        try:
+            trade = entry["jdp_response"]["trade_fullinfo_get_response"]["trade"]
+        except (KeyError, TypeError):
+            trade = None
+        if isinstance(trade, dict):
+            orders = _trade_orders(trade)
+            mains = [o for o in orders if not _is_gift(o)]
+            gifts = [o for o in orders if _is_gift(o)]
+            main_new = _renumber_mains(mains, new_tid)
+            mapping.update(main_new)
+            for g in gifts:
+                old_oid = _oid(g)
+                if not old_oid:
+                    continue
+                # 赠品子单号 = 其挂靠主品的新子单号；找不到挂靠时回退 new_tid。
+                mapping[old_oid] = main_new.get(_gift_ref(g)) or new_tid
+        _replace_values_deep(entry, mapping)
+    return raw
+
+
+def _regenerate_standplat(raw: Any, origin_tid: str, new_tid: str) -> Any:
+    """standplat（dict + data[]）：重建主单号 + items[].oid + 赠品挂靠。
+
+    items[] 里按 is_present 区分主品/赠品；赠品通过 gift_main_oid 挂靠主品。
+    activitys[].oid / order_tags[].oid 等引用由深度按值替换统一覆盖。
+    """
+    if not isinstance(raw, dict):
+        _replace_values_deep(raw, {origin_tid: new_tid})
+        return raw
+    data = raw.get("data")
+    if isinstance(data, list):
+        for order in data:
+            if not isinstance(order, dict):
+                continue
+            mapping: Dict[str, str] = {origin_tid: new_tid}
+            items = order.get("items") or []
+            if isinstance(items, list):
+                mains = [it for it in items if not _is_gift(it)]
+                gifts = [it for it in items if _is_gift(it)]
+                main_new = _renumber_mains(mains, new_tid)
+                mapping.update(main_new)
+                for g in gifts:
+                    old_oid = _oid(g)
+                    if not old_oid:
+                        continue
+                    mapping[old_oid] = main_new.get(_gift_ref(g)) or new_tid
+            _replace_values_deep(order, mapping)
+    return raw
+
+
+def _regenerate_jd(raw: Any, origin_tid: str, new_tid: str) -> Any:
+    """京东（jd_array）：该报文族没有 oid 子单号字段，只需深度替换主单号 orderId。
+
+    orderId 出现在 orderInfoList[].orderId / ocsQueryList[].orderId /
+    orderPrintData.id 等多个位置，按值替换即可全部覆盖。
+    """
+    _replace_values_deep(raw, {origin_tid: new_tid})
+    return raw
+
+
+def regenerate_order_numbers(raw: Any, origin_tid: str, new_tid: str) -> Any:
+    """按平台报文族，把所有「=原单号」的单号及其子单号替换为取到的新单号。
+
+    各平台子单号字段名不同，这里按报文族路由：
+      - 淘宝 jdp_array / jdp_object：主单号 tid + 子单号 oid，赠品挂靠主品复用新 oid；
+      - 京东 jd_array：仅主单号 orderId，无子单号；
+      - standplat（抖音等）：主单号 tid + items[].oid，赠品 gift_main_oid 挂靠主品；
+      - 其他未知结构：按值把原单号替换为新单号。
+
+    编号规则（需求原文）：
+      - 单商品：子单号直接取新单号 new_tid；
+      - 多商品：第一行子单号 = new_tid + 「01」，第二行 +「02」，依次类推；
+      - 赠品：解析其挂靠主品的子单号，替换成主品新的子单号（不能取错）。
+
+    调用示例：
+        from message_service import regenerate_order_numbers
+        new_raw = regenerate_order_numbers(raw, "3238903813883023096", "8882462026102300001")
+    """
+    result = copy.deepcopy(raw)
+    origin_s = str(origin_tid)
+    new_s = str(new_tid)
+    family = detect_message_family(result)
+    if family in ("jdp_array", "jdp_object"):
+        return _regenerate_taobao(result, origin_s, new_s)
+    if family == "jd_array":
+        return _regenerate_jd(result, origin_s, new_s)
+    if family == "standplat":
+        return _regenerate_standplat(result, origin_s, new_s)
+    return _replace_values_deep(result, {origin_s: new_s})
+
+
 def extract_tid(raw: Any) -> Optional[str]:
     if isinstance(raw, dict):
         data = raw.get("data")

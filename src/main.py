@@ -58,6 +58,7 @@ from api_tool import (
 from ip_order_service import insert_jingdong_order, insert_taobao_order
 
 from order_service import (
+    allocate_and_regenerate,
     finalize_build_for_insert,
     format_db_error,
     insert_source,
@@ -1384,6 +1385,7 @@ def platform_order_generate(request: Request, payload: PlatformOrderGenerateIn):
 
         # 淘宝：写淘宝订单中间表，随后走通用转单串联 -> 零售发货单 oc_b_order
         if family in ("jdp_array", "jdp_object"):
+            editor_mq, _new_tid = allocate_and_regenerate(env_key, editor_mq)
             mid, tid = insert_taobao_order(env_key, editor_mq, shop)
             progress.append(f"▸ 写入淘宝订单中间表 ip_b_taobao_order 成功（id={mid}, tid={tid}）")
             chain = payload.chain or "淘宝订单接口"
@@ -1420,6 +1422,7 @@ def platform_order_generate(request: Request, payload: PlatformOrderGenerateIn):
 
         # 京东：写京东订单中间表，随后走通用转单串联 -> 零售发货单 oc_b_order
         if family == "jd_array":
+            editor_mq, _order_id = allocate_and_regenerate(env_key, editor_mq)
             mid, order_id = insert_jingdong_order(env_key, editor_mq, shop)
             progress.append(f"▸ 写入京东订单中间表 ip_b_jingdong_order 成功（id={mid}, orderId={order_id}）")
             chain = payload.chain or "京东订单接口"
