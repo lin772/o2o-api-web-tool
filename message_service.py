@@ -195,41 +195,6 @@ def _oid(obj: Any) -> str:
     return "" if v is None or v == "" else str(v)
 
 
-def _is_gift(obj: Any) -> bool:
-    """判断一个明细是否赠品。
-
-    淘宝用 is_free_gift，其他平台（standplat）用 is_present；
-    注意淘宝主品上的 has_gift 表示「该主品挂了赠品」，不是赠品本身，故不参与判断。
-    """
-    if not isinstance(obj, dict):
-        return False
-    for key in ("is_free_gift", "is_present"):
-        v = obj.get(key)
-        if v is None:
-            continue
-        if str(v).lower() in ("true", "1"):
-            return True
-    return False
-
-
-def _gift_ref(obj: Any) -> str:
-    """返回赠品挂靠主品的子单号索引（各平台字段名不同）。
-
-    优先 gift_main_oid（standplat），其次 gift_mids（淘宝，赠品侧指向主品 oid），
-    最后 os_fg_item_id（部分淘宝赠品侧指向主品 oid）作为兜底。
-    """
-    if not isinstance(obj, dict):
-        return ""
-    for key in ("gift_main_oid", "gift_mids", "os_fg_item_id"):
-        v = obj.get(key)
-        if isinstance(v, (list, tuple)):
-            v = v[0] if v else ""
-        if v is None or v == "":
-            continue
-        return str(v)
-    return ""
-
-
 def _trade_orders(trade: Any) -> List[Dict[str, Any]]:
     """淘宝 trade.orders.order 可能为 list 或单个 dict，统一归一化为 list。"""
     if not isinstance(trade, dict):
@@ -243,14 +208,16 @@ def _trade_orders(trade: Any) -> List[Dict[str, Any]]:
     return o if isinstance(o, list) else [o]
 
 
-def _renumber_mains(mains: List[Dict[str, Any]], new_tid: str) -> Dict[str, str]:
-    """给主品明细编号：单主品 -> new_tid；多主品 -> new_tid + 两位序号（01 起）。
+def _renumber_items(items: List[Dict[str, Any]], new_tid: str) -> Dict[str, str]:
+    """给订单全部明细（主品+赠品，按数组顺序）编号子单号。
 
-    返回 {旧 oid: 新 oid} 映射，供赠品按挂靠主品复用同一新子单号。
+    单明细 -> new_tid；多明细 -> new_tid + 两位序号（01 起，按数组顺序）。
+    返回 {旧 oid: 新 oid} 映射；赠品对主品的引用字段（gift_mids / gift_main_oid 等）
+    由 _replace_values_deep 按值替换自动指向主品新子单号，无需在此单独处理。
     """
-    single = len(mains) <= 1
+    single = len(items) <= 1
     mapping: Dict[str, str] = {}
-    for i, m in enumerate(mains, start=1):
+    for i, m in enumerate(items, start=1):
         old_oid = _oid(m)
         if not old_oid:
             continue
@@ -260,11 +227,10 @@ def _renumber_mains(mains: List[Dict[str, Any]], new_tid: str) -> Dict[str, str]
 
 
 def _regenerate_taobao(raw: Any, origin_tid: str, new_tid: str) -> Any:
-    """淘宝（jdp_array / jdp_object）：重建主单号 + 子单号 oid + 赠品挂靠。
+    """淘宝（jdp_array / jdp_object）：重建主单号 + 子单号 oid。
 
-    trade.orders.order[] 里按 is_free_gift 区分主品/赠品；赠品 oid 复用其挂靠
-    主品的新 oid（gift_mids 反向引用主品 oid）。全部字段（tid/tid_str/oid/oid_str/
-    gift_mids/snapshot_url/service_tags/promotion.id 等）由一次深度按值替换统一覆盖。
+    trade.orders.order[] 全部明细（主品+赠品，按数组顺序）统一编号子单号；
+    赠品对主品的引用字段（gift_mids 等）由深度按值替换自动指向主品新子单号。
     """
     entries = raw if isinstance(raw, list) else [raw]
     result: List[Any] = []
@@ -279,26 +245,17 @@ def _regenerate_taobao(raw: Any, origin_tid: str, new_tid: str) -> Any:
         except (KeyError, TypeError):
             trade = None
         if isinstance(trade, dict):
-            orders = _trade_orders(trade)
-            mains = [o for o in orders if not _is_gift(o)]
-            gifts = [o for o in orders if _is_gift(o)]
-            main_new = _renumber_mains(mains, new_tid)
-            mapping.update(main_new)
-            for g in gifts:
-                old_oid = _oid(g)
-                if not old_oid:
-                    continue
-                # 赠品子单号 = 其挂靠主品的新子单号；找不到挂靠时回退 new_tid。
-                mapping[old_oid] = main_new.get(_gift_ref(g)) or new_tid
+            mapping.update(_renumber_items(_trade_orders(trade), new_tid))
         result.append(_replace_values_deep(entry, mapping))
     return result if isinstance(raw, list) else result[0]
 
 
 def _regenerate_standplat(raw: Any, origin_tid: str, new_tid: str) -> Any:
-    """standplat（dict + data[]）：重建主单号 + items[].oid + 赠品挂靠。
+    """standplat（dict + data[]）：重建主单号 + items[].oid。
 
-    items[] 里按 is_present 区分主品/赠品；赠品通过 gift_main_oid 挂靠主品。
-    activitys[].oid / order_tags[].oid 等引用由深度按值替换统一覆盖。
+    items[] 全部明细（主品+赠品，按数组顺序）统一编号子单号；赠品对主品的引用字段
+    （gift_main_oid 等）由深度按值替换自动指向主品新子单号。activitys[].oid /
+    order_tags[].oid 等引用同样由深度按值替换统一覆盖。
     """
     if not isinstance(raw, dict):
         return _replace_values_deep(raw, {origin_tid: new_tid})
@@ -310,15 +267,7 @@ def _regenerate_standplat(raw: Any, origin_tid: str, new_tid: str) -> Any:
             mapping: Dict[str, str] = {origin_tid: new_tid}
             items = order.get("items") or []
             if isinstance(items, list):
-                mains = [it for it in items if not _is_gift(it)]
-                gifts = [it for it in items if _is_gift(it)]
-                main_new = _renumber_mains(mains, new_tid)
-                mapping.update(main_new)
-                for g in gifts:
-                    old_oid = _oid(g)
-                    if not old_oid:
-                        continue
-                    mapping[old_oid] = main_new.get(_gift_ref(g)) or new_tid
+                mapping.update(_renumber_items(items, new_tid))
             data[idx] = _replace_values_deep(order, mapping)
     return raw
 
@@ -336,15 +285,16 @@ def regenerate_order_numbers(raw: Any, origin_tid: str, new_tid: str) -> Any:
     """按平台报文族，把所有「=原单号」的单号及其子单号替换为取到的新单号。
 
     各平台子单号字段名不同，这里按报文族路由：
-      - 淘宝 jdp_array / jdp_object：主单号 tid + 子单号 oid，赠品挂靠主品复用新 oid；
+      - 淘宝 jdp_array / jdp_object：主单号 tid + 子单号 oid；
       - 京东 jd_array：仅主单号 orderId，无子单号；
-      - standplat（抖音等）：主单号 tid + items[].oid，赠品 gift_main_oid 挂靠主品；
+      - standplat（抖音等）：主单号 tid + items[].oid；
       - 其他未知结构：按值把原单号替换为新单号。
 
     编号规则（需求原文）：
       - 单商品：子单号直接取新单号 new_tid；
       - 多商品：第一行子单号 = new_tid + 「01」，第二行 +「02」，依次类推；
-      - 赠品：解析其挂靠主品的子单号，替换成主品新的子单号（不能取错）。
+      - 赠品：作为独立明细参与编号（「01」/「02」依次递增），其挂靠主品的引用字段
+        （gift_mids / gift_main_oid 等）由深度按值替换自动指向主品新子单号。
 
     调用示例：
         from message_service import regenerate_order_numbers
