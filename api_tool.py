@@ -371,9 +371,12 @@ def _oms_session_cookie(env_key: str) -> str:
 def _xxl_login(env_key: str, oms_cookie: Optional[str] = None) -> requests.Session:
     """登录 XXL-Job，返回已登录的 session。
 
-    /xxl-job-admin 挂在 OMS 同域名下，由 SSO 网关按 OMS 的 sessionCookie 鉴权：
-    缺少/无效 cookie 会被 tengine 直接 403。因此必须在调用 /auth/doLogin 之前
-    先注入 OMS 的 sessionCookie，否则登录请求本身就会被网关拦截。
+    不同环境的 XXL-Job 版本不一：
+    - 标准版(官方 2.x)：登录接口为 POST /login，返回 {"code":200,"content":"<token>"}，
+      需把 token 写入 cookie XXL_JOB_LOGIN_IDENTITY 供 /jobinfo/trigger 鉴权。
+    - 定制版：登录接口可能为 POST /auth/doLogin。
+    此外 /xxl-job-admin 挂在 OMS 同域名下时，由 SSO 网关按 OMS 的 sessionCookie 鉴权，
+    缺少/无效 cookie 会被 tengine 直接 403，因此必须先注入 OMS 的 sessionCookie。
     """
     configs = get_xxl_job_configs()
     cfg = configs.get(env_key) or configs.get(DEFAULT_ENV) or next(iter(configs.values()), {})
@@ -384,25 +387,44 @@ def _xxl_login(env_key: str, oms_cookie: Optional[str] = None) -> requests.Sessi
             oms_cookie = ""
     session = requests.Session()
     session.trust_env = False
-    # 先注入 OMS sessionCookie，保证登录请求本身就能通过 SSO 网关鉴权
-    if oms_cookie:
-        from urllib.parse import urlparse
-        host = urlparse(cfg["url"]).hostname
-        if host:
-            session.cookies.set("sessionCookie", oms_cookie, domain=host, path="/")
-    login_url = cfg["url"].rstrip("/") + "/auth/doLogin"
-    resp = session.post(
-        login_url, data={"userName": cfg["username"], "password": cfg["password"]}, timeout=20
-    )
-    try:
-        login_data = resp.json()
-    except Exception:
-        login_data = {"text": resp.text[:200]}
-    if login_data.get("code") != 200:
-        raise RuntimeError(f"XXL-Job 登录失败: {login_data}")
-    session._xxl_url = cfg["url"]
-    session._oms_cookie = oms_cookie
-    return session
+    from urllib.parse import urlparse
+
+    host = urlparse(cfg["url"]).hostname or ""
+    # 先注入 OMS sessionCookie，保证后续所有请求(含登录)都能通过 SSO 网关鉴权
+    if oms_cookie and host:
+        session.cookies.set("sessionCookie", oms_cookie, domain=host, path="/")
+
+    base = cfg["url"].rstrip("/")
+    username = cfg["username"]
+    password = cfg["password"]
+
+    # 登录接口候选：优先标准版 /login，其次定制版 /auth/doLogin
+    last_error: Any = None
+    for path in ("/login", "/auth/doLogin"):
+        try:
+            resp = session.post(
+                base + path,
+                data={"userName": username, "password": password, "ifRemember": "on"},
+                timeout=20,
+            )
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            continue
+        try:
+            login_data = resp.json()
+        except Exception:
+            login_data = {"text": resp.text[:200]}
+        if isinstance(login_data, dict) and login_data.get("code") == 200:
+            # 标准版 SSO 模式：把返回的 token 写入登录态 cookie
+            token = login_data.get("content") or login_data.get("data") or ""
+            if token and host:
+                session.cookies.set("XXL_JOB_LOGIN_IDENTITY", token, domain=host, path="/")
+            session._xxl_url = cfg["url"]
+            session._oms_cookie = oms_cookie
+            return session
+        last_error = login_data
+
+    raise RuntimeError(f"XXL-Job 登录失败: {last_error}")
 
 
 def _xxl_do_login_and_trigger(env_key: str, jobs: List[Dict[str, Any]], session=None) -> List[Dict[str, Any]]:
