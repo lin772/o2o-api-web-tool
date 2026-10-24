@@ -435,9 +435,18 @@ def _taobao_array(trade: Dict[str, Any], parent: str, child: str) -> List[Dict[s
 
 
 def build_taobao_order_items(trade: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """复现 TbOrderDaoCmdImpl.batchSaveOrderProductDetail：遍历 trade.orders.order[]。"""
+    """遍历 trade.orders.order[]，并在落库边界再次保证淘宝明细 OID 按行唯一。"""
+    source_items = _taobao_array(trade, "orders", "order")
+    tid = str(trade.get("tid") or "")
+    if len(source_items) > 9:
+        raise ValueError(f"淘宝多明细目前仅支持最多 9 个明细（当前 {len(source_items)} 个）")
+
     rows: List[Dict[str, Any]] = []
-    for item in _taobao_array(trade, "orders", "order"):
+    single = len(source_items) <= 1
+    for index, item in enumerate(source_items, start=1):
+        # 淘宝 oid 必须保持 19 位；主赠品也按明细位置分配不同 OID，不能依赖原报文 oid。
+        new_oid = tid if single else f"{tid[:3]}{index}{index}{tid[5:]}"
+        item = {**item, "oid": new_oid, "oid_str": new_oid}
         # 先取局部变量（白名单过滤前），主赠品关联 os_fg_item_id/os_gift_count 在此
         extra = {k: item.get(k) for k in TAOBAO_ITEM_EXTRA_FIELDS}
         brand_light_shop_store_id = item.get("brand_light_shop_store_id")
