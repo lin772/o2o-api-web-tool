@@ -260,7 +260,7 @@ def insert_source(
         order_conn.close()
 
 
-def run_transfer(env_key: str, source_id: int, tid: str) -> Dict[str, Any]:
+def run_transfer(env_key: str, source_id: int, tid: str, progress=None) -> Dict[str, Any]:
     cfg = load_config()
     env = get_env_config(env_key, cfg)
     transfer_cfg = cfg.get("transfer") or {}
@@ -269,10 +269,15 @@ def run_transfer(env_key: str, source_id: int, tid: str) -> Dict[str, Any]:
     timeout = int(transfer_cfg.get("poll_timeout_seconds", 45))
     result: Dict[str, Any] = {"source_id": source_id, "tid": tid, "steps": []}
 
+    def emit(msg: str) -> None:
+        if progress:
+            progress(msg)
+
     if not transfer_cfg.get("auto_source_transfer", True):
         result["steps"].append("已跳过报文转平台订单（config.transfer.auto_source_transfer=false）")
         return result
 
+    emit("▸ 订单报文下发中。。")
     client = OmsClient(oms_cfg["base_url"], login.get("username", ""), login.get("password", ""))
     client.login()
     code, body = client.batch_transfer_source(source_id)
@@ -296,9 +301,13 @@ def run_transfer(env_key: str, source_id: int, tid: str) -> Dict[str, Any]:
             result["warning"] = "平台订单未在超时内生成"
             return result
 
+        emit("▸ 订单报文下发成功，正在执行转单")
+
         if transfer_cfg.get("auto_retail_transfer", True):
+            emit("▸ 转单中（平台订单转零售发货单）。。")
             code2, body2 = client.transfer_platform_order(platform_id)
             result["steps"].append({"orderTransfer": {"http": code2, "body": body2}})
+            retail_found = False
             while time.time() < deadline:
                 with order_conn.cursor() as cur:
                     cur.execute(
@@ -308,8 +317,11 @@ def run_transfer(env_key: str, source_id: int, tid: str) -> Dict[str, Any]:
                     retail = cur.fetchone()
                     if retail:
                         result["retail_order"] = retail
+                        retail_found = True
                         break
                 time.sleep(3)
+            if retail_found:
+                emit("▸ 转单成功")
     finally:
         order_conn.close()
 

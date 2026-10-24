@@ -518,6 +518,15 @@ def run_retail_audit(env_key: str, retail_order_id: int, client=None) -> Dict[st
     }
 
 
+# 零售发货单 order_status -> 推进动作的业务文案（用于逐步日志）
+_STATUS_TASK_LABEL = {
+    50: "待分配任务",
+    2: "寻源任务",
+    1: "审核",
+    3: "配货任务",
+}
+
+
 def advance_retail_order_to_target(
     env_key: str,
     retail_order_id: int,
@@ -615,10 +624,11 @@ def advance_retail_order_to_target(
                 continue
 
             name = task.get("name", f"status_{status}")
+            label = _STATUS_TASK_LABEL.get(status, name)
 
             # 该状态对应任务已触发过，且状态未持续卡住：仅等待状态变化，不重复触发
             if name in triggered_names and stuck_count < 3:
-                _log(f"status={status} 已触发 {name}，等待状态变化（第 {stuck_count} 轮无变化）")
+                _log(f"{label}已触发，等待状态变化（第 {stuck_count} 轮无变化）")
                 _sleep(8)
                 continue
 
@@ -626,29 +636,29 @@ def advance_retail_order_to_target(
             # 单个任务执行次数超限（达到 5 次）即终止，避免无限重试
             if count >= 5:
                 raise RuntimeError(
-                    f"定时任务/审核 [{name}] 已执行 {count} 次仍无进展，"
+                    f"[{label}] 已执行 {count} 次仍无进展，"
                     f"当前 order_status={status}，终止流程"
                 )
             run_counts[name] = count + 1
             triggered_names.add(name)
 
             if task.get("action") == "audit":
-                _log(f"status={status} 执行零售发货单手工审核（OMS 审核按钮）中。。")
+                _log("正在执行审核")
                 if oms_client is None:
                     oms_client = _oms_login(env_key)
                 audit = run_retail_audit(env_key, retail_order_id, client=oms_client)
                 body = audit.get("body")
                 msg = body if isinstance(body, str) else json.dumps(body, ensure_ascii=False)[:300]
                 executed.append({"name": name, "id": retail_order_id, "ok": audit.get("ok", False), "msg": msg})
-                _log(f"手工审核完成（ok={audit.get('ok')}）")
+                _log("审核成功" if audit.get("ok") else "审核失败")
             else:
-                _log(f"status={status} 触发定时任务 {name}#{task.get('id')} 中。。")
+                _log(f"正在执行{label}")
                 if xxl_session is None:
                     xxl_session = _xxl_login(env_key)
                 results = _xxl_do_login_and_trigger(env_key, [task], session=xxl_session)
                 for r in results:
                     executed.append(r)
-                    _log(f"触发 {r.get('name')}#{r.get('id')}: {'成功' if r.get('ok') else '失败'} {r.get('msg', '')}")
+                    _log(f"{label}{'成功' if r.get('ok') else '失败'} {r.get('msg', '')}")
 
             # 触发后短轮询等待状态变化（最长 20s），发生变化即进入下一轮
             _poll_retail_status_change(conn, retail_order_id, status, timeout=20, interval=3, cancel_event=cancel_event)
@@ -1803,8 +1813,8 @@ class StockAdjustToolManager:
         raw_steps = []
 
         adjust_save = self._post_json(client, "/api/cs/sg/v2/sgBStoAdjust/save", payloads["adjust_save"])
-        raw_steps.append({"step": "库存调整单保存", **adjust_save})
-        item = self._business_step("库存调整单保存", adjust_save)
+        raw_steps.append({"step": "库存调整单新增", **adjust_save})
+        item = self._business_step("库存调整单新增", adjust_save)
         steps.append(item)
         if on_step:
             on_step(item)
@@ -1834,8 +1844,8 @@ class StockAdjustToolManager:
         })
         # #endregion
         allocation_save = self._post_json(client, "/api/cs/sg/sgBShareAllocation/save", payloads["allocation_save"])
-        raw_steps.append({"step": "分货单保存", **allocation_save})
-        item = self._business_step("分货单保存", allocation_save)
+        raw_steps.append({"step": "分货单新增", **allocation_save})
+        item = self._business_step("分货单新增", allocation_save)
         steps.append(item)
         if on_step:
             on_step(item)

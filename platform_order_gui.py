@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import json
 import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
@@ -771,8 +770,7 @@ class PlatformOrderApp:
                 emit(f"▸ TID={tid}")
                 source_id = insert_source(env_key, build, db_msg, tid)
                 emit(f"▸ 报文已写入 source_id={source_id}")
-                transfer_result = run_transfer(env_key, source_id, tid)
-                emit("▸ 转单完成: " + json.dumps(transfer_result, ensure_ascii=False, default=str)[:600])
+                run_transfer(env_key, source_id, tid, progress=emit)
 
                 if auto_adjust:
                     retail = query_retail_order_by_tid(env_key, tid)

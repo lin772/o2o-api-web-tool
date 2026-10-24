@@ -1184,10 +1184,8 @@ class _ChainFailure(Exception):
 
 
 def _log_advance_result(adv: dict, log) -> None:
-    log(f"▸ 推进完成（status={adv.get('status')}）")
-    for ex in adv.get("executed", []):
-        ok_flag = "成功" if ex.get("ok") else "失败"
-        log(f"   - 触发 {ex.get('name')}#{ex.get('id')}: {ok_flag} {ex.get('msg', '')}")
+    label = _NODE_LABEL.get(adv.get("status"), f"状态{adv.get('status')}")
+    log(f"▸ 已推进到{label}")
 
 
 def _warehouse_ship(env_key: str, retail_order_id: int, progress=None):
@@ -1215,12 +1213,10 @@ def _advance_retail_to_node(env_key: str, retail_id: int, target: int, log) -> N
     1/2/4 走原推进逻辑；5 需先到配货中(4)再调发货接口；6 需发货接口后再轮询到平台发货。
     """
     if target in (1, 2, 4):
-        log(f"▸ 推进零售发货单到状态{target}中。。")
         _log_advance_result(advance_retail_order_to_target(env_key, retail_id, target_status=target, progress=log), log)
         return
 
     # 仓库发货 / 平台发货：先推进到配货中(4)
-    log("▸ 推进零售发货单到配货中(4)中。。")
     _log_advance_result(advance_retail_order_to_target(env_key, retail_id, target_status=4, progress=log), log)
 
     # 仓库发货：调用发货接口（占位，待实现后替换）
@@ -1254,29 +1250,27 @@ def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, pro
 
         # 平台订单报文：仅落库（generate 已写 SOURCE），不再转单
         if target is None:
-            log("▸ 报文已解析落库到平台订单报文中间表，接口节点完成。。")
+            log("▸ 报文已解析落库到平台订单报文中间表，接口节点完成")
             return
 
-        log("▸ 执行单据转换(batchTransfer)中。。")
+        log("▸ 订单报文下发中。。")
         run_source_batch_transfer(env_key, source_id)
-        log("▸ 单据转换(batchTransfer)完成。。")
 
         stage = "平台订单"
         source = _poll_source_trans_status(env_key, tid)
         trans_status = source.get("trans_status") if source else None
-        log(f"▸ 转换结果 trans_status={trans_status}")
         if trans_status in (4, 5):
-            raise RuntimeError(f"平台订单报文转换异常: trans_status={trans_status}")
+            raise RuntimeError(f"订单报文下发异常: trans_status={trans_status}")
         if trans_status != 2:
-            raise RuntimeError(f"平台订单报文转换未完成: trans_status={trans_status}")
+            raise RuntimeError(f"订单报文下发未完成: trans_status={trans_status}")
+        log("▸ 订单报文下发成功，正在执行转单")
 
         # 平台订单：转单到平台订单即停
         if target == "platform_order":
-            log("▸ 节点串联完成（平台订单已生成）。。")
+            log("▸ 节点串联完成（平台订单已生成）")
             return
 
         stage = _NODE_LABEL.get(target, "平台订单")
-        log("▸ 查询平台订单(IP_B_PLATFORM_ORDER)中。。")
         po = None
         for _ in range(8):
             po = query_platform_order_by_tid(env_key, tid)
@@ -1285,13 +1279,10 @@ def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, pro
             time.sleep(2)
         if not po:
             raise RuntimeError(f"未找到平台订单 tid={tid}")
-        log(f"▸ 查询平台订单完成（id={po.get('id')}）")
 
-        log("▸ 执行单据转换(orderTransfer)中。。")
+        log("▸ 转单中（平台订单转零售发货单）。。")
         run_platform_order_convert(env_key, po["id"])
-        log("▸ 单据转换(orderTransfer)完成。。")
 
-        log("▸ 查询零售发货单中。。")
         retail = None
         for _ in range(10):
             retail = query_retail_order_by_tid(env_key, tid)
@@ -1300,7 +1291,7 @@ def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, pro
             time.sleep(2)
         if not retail:
             raise RuntimeError(f"未找到零售发货单 tid={tid}")
-        log(f"▸ 查询零售发货单完成（id={retail.get('id')}, status={retail.get('order_status')}）")
+        log("▸ 转单成功")
 
         if retail.get("order_status") == 7:
             log("▸ 零售发货单状态=已取消，结束制单流程")
@@ -1312,7 +1303,7 @@ def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, pro
                     env_key, retail["id"], retail.get("cp_c_shop_id"), log=log
                 )
 
-        log("▸ 节点串联完成。。")
+        log("▸ 节点串联完成")
     except Exception as exc:
         raise _ChainFailure(stage, str(exc)) from exc
 
@@ -1335,16 +1326,14 @@ def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, cha
 
         # 淘宝/京东订单接口：仅落库（generate 已写中间表），不再转单
         if target is None:
-            log("▸ 报文已解析落库到中间表，接口节点完成。。")
+            log("▸ 报文已解析落库到中间表，接口节点完成")
             return
 
         stage = "中间表转单"
-        log("▸ 执行通用转单(common/transfer)中。。")
+        log("▸ 转单中（通用转单 → 零售发货单）。。")
         run_ip_common_transfer(env_key, transfer["table"], transfer["tableid"], [master_id], transfer["menu"])
-        log("▸ 通用转单完成。。")
 
         stage = "查询零售发货单"
-        log("▸ 查询零售发货单(oc_b_order)中。。")
         retail = None
         for _ in range(10):
             retail = query_retail_order_by_tid(env_key, tid)
@@ -1353,7 +1342,7 @@ def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, cha
             time.sleep(2)
         if not retail:
             raise RuntimeError(f"未找到零售发货单 tid={tid}")
-        log(f"▸ 查询零售发货单完成（id={retail.get('id')}, status={retail.get('order_status')}）")
+        log("▸ 转单成功")
 
         if retail.get("order_status") == 7:
             log("▸ 零售发货单状态=已取消，结束制单流程")
@@ -1366,7 +1355,7 @@ def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, cha
                     env_key, retail["id"], retail.get("cp_c_shop_id"), log=log
                 )
 
-        log("▸ 节点串联完成。。")
+        log("▸ 节点串联完成")
     except Exception as exc:
         raise _ChainFailure(stage, str(exc)) from exc
 
