@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from oms_client import OmsClient
-from order_service import _with_db_retry, db_connect, format_db_error
+from order_service import _with_db_retry, db_connect, format_db_error, get_sequence_id
 from reverse_message_service import ReverseBuildResult, build_reverse_preview
 from settings import get_env_config, get_platform_meta, load_config, platform_display_name
 
@@ -142,7 +142,9 @@ def insert_platform_return_order(env_key: str, build: ReverseBuildResult) -> int
 
     order_conn = db_connect(env["order_db"], cfg)
     try:
+        row_id = get_sequence_id(order_conn, "ip_b_platform_return_order")
         row = {
+            "id": row_id,
             "cp_c_shop_id": shop.get("id") or build.shop_id,
             "seller_nick": shop.get("seller_nick") or build.seller_nick,
             "cp_c_platform_id": build.platform_id,
@@ -174,7 +176,6 @@ def insert_platform_return_order(env_key: str, build: ReverseBuildResult) -> int
                 f"VALUES ({', '.join(['%s'] * len(data))})",
                 tuple(data.values()),
             )
-            row_id = cur.lastrowid
         order_conn.commit()
         return row_id
     finally:

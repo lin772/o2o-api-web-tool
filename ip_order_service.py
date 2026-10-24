@@ -20,7 +20,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from order_service import db_connect
+from order_service import db_connect, get_sequence_id
 from settings import get_env_config, load_config
 
 # ---------------------------------------------------------------------------
@@ -645,7 +645,7 @@ def build_jingdong_promotion_new(order: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def insert_master_table(env_key: str, table_name: str, row: Dict[str, Any], shop: Dict[str, Any]) -> int:
-    """复现 PackageJsonSqlUtil.saveMasterTable：落一张主表（淘宝/京东），返回自增主键 ID。"""
+    """复现 PackageJsonSqlUtil.saveMasterTable：落一张主表（淘宝/京东），返回主键 ID。"""
     cfg = load_config()
     env = get_env_config(env_key, cfg)
     conn = db_connect(env["order_db"], cfg)
@@ -658,7 +658,8 @@ def insert_master_table(env_key: str, table_name: str, row: Dict[str, Any], shop
             raise ValueError(f"{table_name} 缺少 id 主键列")
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        candidate = {**row, "insertdate": now, "cp_c_shop_id": shop["id"]}
+        mid = get_sequence_id(conn, table_name)
+        candidate = {**row, "id": mid, "insertdate": now, "cp_c_shop_id": shop["id"]}
 
         data: Dict[str, Any] = {}
         for k, v in candidate.items():
@@ -676,7 +677,6 @@ def insert_master_table(env_key: str, table_name: str, row: Dict[str, Any], shop
         placeholders = ", ".join(["%s"] * len(data))
         with conn.cursor() as cur:
             cur.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", tuple(data.values()))
-            mid = cur.lastrowid
 
         conn.commit()
         return mid
@@ -687,7 +687,7 @@ def insert_master_table(env_key: str, table_name: str, row: Dict[str, Any], shop
 def insert_child_table(env_key: str, table_name: str, rows: List[Dict[str, Any]], foreign_key: str, mid: int) -> int:
     """复现 PackageJsonSqlUtil.batchSaveChildTable：逐行落子表，返回插入行数。
 
-    ID 与 Java 侧 saveChildTable 一致交由数据库自增生成，工具侧不再手动 MAX+1 取值。
+    ID 与 Java 侧 saveChildTable 一致，经由同源 ad_sequence 序列表发号生成。
     """
     cfg = load_config()
     env = get_env_config(env_key, cfg)
@@ -701,7 +701,12 @@ def insert_child_table(env_key: str, table_name: str, rows: List[Dict[str, Any]]
         inserted = 0
         with conn.cursor() as cur:
             for row in rows:
-                candidate = {**row, foreign_key: mid, "creationdate": now}
+                candidate = {
+                    **row,
+                    "id": get_sequence_id(conn, table_name),
+                    foreign_key: mid,
+                    "creationdate": now,
+                }
                 data: Dict[str, Any] = {}
                 for k, v in candidate.items():
                     if v is None:

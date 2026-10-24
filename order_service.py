@@ -87,6 +87,46 @@ def format_db_error(err: Exception) -> str:
     return str(err)
 
 
+def get_sequence_id(conn, table_name: str) -> int:
+    """按表名取主键 id，与 OMS 侧 `Tools/ModelUtil.getSequence(tableName)` 同源同库。
+
+    复用 OMS 的 `ad_sequence` 序列表（`SequenceMapper.findByName` 同款数据源），
+    原子推进当前值并取回旧值，从而与 MQ 推过来的真实订单共享同一号段、
+    永不相撞。仅当 `ad_sequence` 不可用（表不存在 / 无该 name 记录 / 异常）时，
+    兜底按目标表 `MAX(id)+1` 取值，保证工具在缺少序列表的环境仍可落库。
+    """
+    try:
+        with conn.cursor() as cur:
+            # LAST_INSERT_ID(currentnext) 先把旧当前值写入会话变量并返回，
+            # 同时把列推进到 old + incrementno —— 语义与 ADempiere
+            # MSequence.getNextID（取当前值、再递增）完全一致。
+            cur.execute(
+                "UPDATE ad_sequence "
+                "SET currentnext = LAST_INSERT_ID(currentnext) + COALESCE(incrementno, 1) "
+                "WHERE name = %s",
+                (table_name,),
+            )
+            if cur.rowcount == 1:
+                cur.execute("SELECT LAST_INSERT_ID() AS seq_id")
+                row = cur.fetchone()
+                if row:
+                    value = row.get("seq_id") if isinstance(row, dict) else row[0]
+                    if value is not None:
+                        seq_id = int(value)
+                        if seq_id > 0:
+                            return seq_id
+    except pymysql.MySQLError:
+        # ad_sequence 不存在或所在库异常时，退回 MAX+1 兜底
+        pass
+
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM {table_name}")
+        row = cur.fetchone()
+        if isinstance(row, dict):
+            return int(row.get("next_id") or 1)
+        return int(row[0] if row and row[0] is not None else 1)
+
+
 def resolve_source_defaults(shop: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """合并入库默认字段；优先使用店铺档案的 ad_client_id / ad_org_id。"""
     cfg = cfg or load_config()
@@ -223,7 +263,9 @@ def insert_source(
 
     order_conn = db_connect(env["order_db"])
     try:
+        source_id = get_sequence_id(order_conn, "IP_B_PLATFORM_ORDER_SOURCE")
         row = {
+            "id": source_id,
             "tid": tid,
             "platform_id": build.platform_id,
             "seller_nick": build.seller_nick,
@@ -246,7 +288,6 @@ def insert_source(
                 f"VALUES ({', '.join(['%s'] * len(data))})",
                 tuple(data.values()),
             )
-            source_id = cur.lastrowid
         order_conn.commit()
         return source_id
     finally:

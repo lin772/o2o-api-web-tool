@@ -255,7 +255,8 @@ class DBOrderSourceManager:
                 return result
 
             new_data = source_data.copy()
-            new_data.pop('id', None)
+            from order_service import get_sequence_id
+            new_data['id'] = get_sequence_id(self.connection, "IP_B_PLATFORM_ORDER_SOURCE")
             new_data['tid'] = new_tid
 
             if shop_info:
@@ -286,7 +287,7 @@ class DBOrderSourceManager:
 
             with self.connection.cursor() as cursor:
                 cursor.execute(sql, tuple(new_data.values()))
-                new_id = cursor.lastrowid
+                new_id = new_data['id']
                 self.connection.commit()
 
             result['success'] = True

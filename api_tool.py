@@ -901,9 +901,10 @@ class OrderCopyManager:
 
             new_tid = str(max_tid + 1)
 
-            # 复制订单数据（主键 id 交由数据库自增生成，不手动写入）
+            # 复制订单数据（主键 id 经由同源 ad_sequence 序列表发号生成）
             new_order = source_order.copy()
-            new_order.pop('id', None)
+            from order_service import get_sequence_id
+            new_order['id'] = get_sequence_id(self.order_conn, "IP_B_PLATFORM_ORDER_SOURCE")
             new_order['tid'] = new_tid
             # 移除不存在的字段
             if 'create_time' in new_order:
@@ -975,7 +976,7 @@ class OrderCopyManager:
 
             with self.order_conn.cursor() as cursor:
                 cursor.execute(sql, tuple(new_order[k] for k in columns))
-                new_id = cursor.lastrowid
+                new_id = new_order['id']
                 self.order_conn.commit()
 
             result['success'] = True
