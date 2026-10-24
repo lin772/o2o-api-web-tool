@@ -362,10 +362,21 @@ def run_ip_common_transfer(env_key: str, table: str, tableid: int, ids, menu: st
     }
 
 
-def _xxl_login(env_key: str) -> requests.Session:
-    """登录 XXL-Job，返回已登录的 session。"""
+def _oms_session_cookie(env_key: str) -> str:
+    """登录对应环境 OMS，返回 sessionCookie 值（跨域携带到 XXL-Job 请求头）。"""
+    client = _oms_login(env_key)
+    return client.session.cookies.get("sessionCookie") or ""
+
+
+def _xxl_login(env_key: str, oms_cookie: Optional[str] = None) -> requests.Session:
+    """登录 XXL-Job，返回已登录的 session；并携带 OMS sessionCookie 到后续请求。"""
     configs = get_xxl_job_configs()
     cfg = configs.get(env_key) or configs.get(DEFAULT_ENV) or next(iter(configs.values()), {})
+    if oms_cookie is None:
+        try:
+            oms_cookie = _oms_session_cookie(env_key)
+        except Exception:
+            oms_cookie = ""
     session = requests.Session()
     session.trust_env = False
     login_url = cfg["url"].rstrip("/") + "/auth/doLogin"
@@ -379,6 +390,12 @@ def _xxl_login(env_key: str) -> requests.Session:
     if login_data.get("code") != 200:
         raise RuntimeError(f"XXL-Job 登录失败: {login_data}")
     session._xxl_url = cfg["url"]
+    session._oms_cookie = oms_cookie
+    if oms_cookie:
+        from urllib.parse import urlparse
+        host = urlparse(cfg["url"]).hostname
+        if host:
+            session.cookies.set("sessionCookie", oms_cookie, domain=host, path="/")
     return session
 
 
@@ -422,6 +439,24 @@ def _oms_login(env_key: str):
     client = OmsClient(cfg["base_url"], cfg["username"], cfg["password"])
     client.login()
     return client
+
+
+def xxl_fetch_page(env_key: str, path: str = "", session: Optional[requests.Session] = None) -> Dict[str, Any]:
+    """带 OMS sessionCookie 访问 XXL-Job 网页，返回 {http, content_type, text}。"""
+    if session is None:
+        session = _xxl_login(env_key)
+    base = getattr(session, "_xxl_url", None)
+    if not base:
+        configs = get_xxl_job_configs()
+        cfg = configs.get(env_key) or configs.get(DEFAULT_ENV) or next(iter(configs.values()), {})
+        base = cfg["url"]
+    url = base.rstrip("/") + ("/" + path.lstrip("/") if path else "/")
+    resp = session.get(url, timeout=20)
+    return {
+        "http": resp.status_code,
+        "content_type": resp.headers.get("content-type", ""),
+        "text": resp.text,
+    }
 
 
 def run_retail_audit(env_key: str, retail_order_id: int, client=None) -> Dict[str, Any]:

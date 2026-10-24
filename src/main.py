@@ -21,7 +21,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -54,6 +54,7 @@ from api_tool import (
     run_ip_common_transfer,
     run_platform_order_convert,
     run_source_batch_transfer,
+    xxl_fetch_page,
 )
 from ip_order_service import insert_jingdong_order, insert_taobao_order
 
@@ -770,6 +771,27 @@ def delete_xxl_config(config_id: int, request: Request):
     return JSONResponse(
         {"success": False, "error_msg": result.get("error_msg", "删除失败")}, status_code=400
     )
+
+
+@app.get("/api/xxl/open-page")
+def open_xxl_page(request: Request, env: str = "", path: str = ""):
+    """带 OMS sessionCookie 访问 XXL-Job 网页（服务端代理，返回页面内容）。"""
+    denied = _menu_gate(request, "xxl_config")
+    if denied:
+        return denied
+    if not env:
+        return JSONResponse({"success": False, "error_msg": "缺少 env 参数"}, status_code=400)
+    try:
+        result = xxl_fetch_page(env, path)
+        return JSONResponse({
+            "success": True,
+            "error_msg": "",
+            "http": result["http"],
+            "content_type": result["content_type"],
+            "text": result["text"],
+        })
+    except Exception as exc:
+        return JSONResponse({"success": False, "error_msg": str(exc)}, status_code=400)
 
 
 # ---------------------------------------------------------------------------

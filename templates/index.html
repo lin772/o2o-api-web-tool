@@ -2403,6 +2403,7 @@
                     '<td>' + escapeHtml(r.account) + '</td>' +
                     '<td>******</td>' +
                     '<td>' +
+                        '<button class="btn btn-ghost" onclick="openXxlPageByRow(' + r.id + ')">访问</button> ' +
                         '<button class="btn btn-ghost" onclick="openXxlModal(' + r.id + ')">编辑</button> ' +
                         '<button class="btn btn-danger" onclick="deleteXxlConfig(' + r.id + ')">删除</button>' +
                     '</td>' +
@@ -2424,6 +2425,23 @@
                     applyXxlFilter();
                 })
                 .catch(function () { showToast('加载XXL-Job配置失败：网络或服务异常', 'error'); });
+        }
+
+        function openXxlPageByRow(id) {
+            const row = xxlRows.filter(function (r) { return String(r.id) === String(id); })[0];
+            if (!row) { showToast('未找到该 XXL-Job 配置', 'error'); return; }
+            const key = (row.project_name ? row.project_name + '||' + row.env : (row.env || '')).toLowerCase();
+            showToast('正在带 OMS sessionCookie 访问 XXL-Job 页面…', 'info');
+            fetch('/api/xxl/open-page?env=' + encodeURIComponent(key) + '&path=/')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data || !data.success) {
+                        showToast('访问失败：' + ((data && data.error_msg) || '未知错误'), 'error');
+                        return;
+                    }
+                    showToast('访问成功：HTTP ' + data.http, 'success');
+                })
+                .catch(function () { showToast('访问失败：网络或服务异常', 'error'); });
         }
 
         function applyXxlFilter() {
