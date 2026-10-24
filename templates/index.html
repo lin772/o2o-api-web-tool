@@ -1289,6 +1289,52 @@
             if (window.hljs) { window.hljs.highlightElement(codeEl); }
         }
 
+        // ---------- 流式读取 SSE（执行一步渲染一步）----------
+        function fetchStream(url, options, onLog) {
+            return fetch(url, options)
+                .then(function (resp) {
+                    const contentType = resp.headers.get('Content-Type') || '';
+                    if (contentType.indexOf('text/event-stream') !== -1 && resp.body) {
+                        const reader = resp.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        let buffer = '';
+                        return new Promise(function (resolve, reject) {
+                            function read() {
+                                reader.read().then(function (result) {
+                                    if (result.done) { resolve(null); return; }
+                                    buffer += decoder.decode(result.value, { stream: true });
+                                    let idx;
+                                    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+                                        const raw = buffer.slice(0, idx);
+                                        buffer = buffer.slice(idx + 2);
+                                        const dataLine = raw.split('\n')
+                                            .map(function (l) { return l.trim(); })
+                                            .filter(function (l) { return l.indexOf('data:') === 0; })
+                                            .map(function (l) { return l.slice(5).trim(); })
+                                            .join('\n');
+                                        if (!dataLine) { continue; }
+                                        let evt;
+                                        try { evt = JSON.parse(dataLine); } catch (e) { continue; }
+                                        if (evt.type === 'log') {
+                                            if (onLog) { onLog(evt.message); }
+                                        } else if (evt.type === 'done') {
+                                            resolve(evt.result);
+                                            return;
+                                        } else if (evt.type === 'fail') {
+                                            resolve({ success: false, error_msg: evt.error });
+                                            return;
+                                        }
+                                    }
+                                    read();
+                                }).catch(function (err) { reject(err); });
+                            }
+                            read();
+                        });
+                    }
+                    return resp.json();
+                });
+        }
+
         // ---------- 真实发送请求 ----------
         function realSend(btn) {
             const panel = btn.closest('.panel');
@@ -1657,13 +1703,16 @@
             if (abortBtn) { abortBtn.disabled = false; }
             if (status) { setStatus(status, 'loading', '生成中…'); }
 
-            fetch('/api/platform-order/generate', {
+            const logs = [];
+            fetchStream('/api/platform-order/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ env: f.env, platform: f.platform, scenario: f.scenario, editor_text: editorText, chain: f.chain, auto_adjust_stock: f.autoAdjustStock }),
                 signal: controller.signal
+            }, function (msg) {
+                logs.push(msg);
+                if (codeEl) { renderHighlight(codeEl, logs.join('\n')); }
             })
-                .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (data && data.success) {
                         if (status) { setStatus(status, 'success', '生成成功'); }
@@ -1674,13 +1723,13 @@
                             master_id: data.master_id,
                             chain: data.chain
                         };
-                        const progress = (data.progress || []).join('\n');
+                        const progress = logs.join('\n');
                         if (codeEl) { renderHighlight(codeEl, progress + (progress ? '\n\n' : '') + JSON.stringify(summary, null, 2)); }
                         if (costEl) { costEl.textContent = 'tid: ' + (data.tid || '-'); }
                         showToast('生成订单成功，tid=' + (data.tid || '-'), 'success');
                     } else {
                         const errMsg = (data && data.error_msg) || '未知错误';
-                        const progress = (data && data.progress) ? data.progress.join('\n') : '';
+                        const progress = logs.join('\n');
                         const failedNode = (data && data.failed_node) || '';
                         const failureReason = (data && data.failure_reason) || '';
                         let out = progress ? (progress + '\n\n') : '';
@@ -1780,22 +1829,25 @@
             btn.disabled = true; btn.textContent = '生成中…';
             if (status) { setStatus(status, 'loading', '生成中…'); }
 
-            fetch('/api/reverse-order/generate', {
+            const logs = [];
+            fetchStream('/api/reverse-order/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ env: getCurrentEnv(), platform: f.platform, scenario: f.scenario, tid: f.tid, editor_text: editorText })
+            }, function (msg) {
+                logs.push(msg);
+                if (codeEl) { renderHighlight(codeEl, logs.join('\n')); }
             })
-                .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (data && data.success) {
                         if (status) { setStatus(status, 'success', '生成成功'); }
-                        const progress = (data.progress || []).join('\n');
+                        const progress = logs.join('\n');
                         const summary = { return_order_id: data.return_order_id, return_no: data.return_no, tid: data.tid };
                         if (codeEl) { renderHighlight(codeEl, progress + (progress ? '\n\n' : '') + JSON.stringify(summary, null, 2)); }
                         showToast('生成售后申请成功，return_no=' + (data.return_no || '-'), 'success');
                     } else {
                         const errMsg = (data && data.error_msg) || '未知错误';
-                        const progress = (data && data.progress) ? data.progress.join('\n') : '';
+                        const progress = logs.join('\n');
                         let out = progress ? (progress + '\n\n') : '';
                         out += errMsg;
                         if (status) { setStatus(status, 'error', '生成失败'); }
@@ -1962,7 +2014,8 @@
             btn.textContent = '执行中…';
             if (status) { setStatus(status, 'loading', '执行中…'); }
 
-            fetch('/api/stock-adjust/execute', {
+            const logs = [];
+            fetchStream('/api/stock-adjust/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1972,20 +2025,27 @@
                     qty: qty,
                     env: getCurrentEnv()
                 })
+            }, function (msg) {
+                logs.push(msg);
+                if (area) { area.value = logs.join('\n'); }
             })
-                .then(function (r) { return r.json(); })
                 .then(function (data) {
+                    const progress = logs.join('\n');
                     if (data && data.success) {
                         if (status) { setStatus(status, 'success', '执行完成'); }
-                        if (area) { area.value = formatStockResult(data.data) || '执行完成'; }
+                        const pretty = formatStockResult(data.data);
+                        let out = progress;
+                        if (out && pretty) { out += '\n\n' + pretty; } else if (pretty) { out = pretty; }
+                        if (area) { area.value = out || '执行完成'; }
                         showToast('库存调整执行完成', 'success');
                     } else {
                         const errMsg = (data && data.error_msg) || '未知错误';
                         if (status) { setStatus(status, 'error', '执行失败'); }
-                        if (area) {
-                            const summary = (data && data.data) ? formatStockResult(data.data) : '';
-                            area.value = summary || errMsg;
-                        }
+                        const summary = (data && data.data) ? formatStockResult(data.data) : '';
+                        let out = progress;
+                        if (out && summary) { out += '\n\n' + summary; } else if (summary) { out = summary; }
+                        if (!out) { out = errMsg; }
+                        if (area) { area.value = out; }
                         showToast('执行失败：' + errMsg, 'error');
                     }
                 })

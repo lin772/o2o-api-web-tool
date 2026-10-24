@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import os
+import queue
+import threading
 import time
 from pathlib import Path
 
@@ -21,7 +23,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -907,42 +909,52 @@ def execute_stock_adjust(request: Request, payload: StockAdjustIn):
     except Exception:
         return JSONResponse({"success": False, "error_msg": "调整数量必须是数字"}, status_code=400)
 
-    manager = None
-    try:
-        manager = StockAdjustToolManager(env_key=env_key)
-        if not manager.base_conn and not manager.connect_base_db():
-            raise RuntimeError(f"基础库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
-        if not manager.sg_conn and not manager.connect_sg_db():
-            raise RuntimeError(f"SG库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
+    def run(emit):
+        manager = None
+        try:
+            emit("▶ 开始执行调整库存")
+            manager = StockAdjustToolManager(env_key=env_key)
+            if not manager.base_conn and not manager.connect_base_db():
+                raise RuntimeError(f"基础库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
+            if not manager.sg_conn and not manager.connect_sg_db():
+                raise RuntimeError(f"SG库连接失败: {manager.last_error or '请检查数据库地址/VPN/网络'}")
 
-        logic_store = manager.get_logic_store_by_id(payload.logic_store_id)
-        if not logic_store:
-            return JSONResponse({"success": False, "error_msg": "逻辑仓不存在"}, status_code=400)
+            logic_store = manager.get_logic_store_by_id(payload.logic_store_id)
+            if not logic_store:
+                return {"success": False, "error_msg": "逻辑仓不存在"}
 
-        share_store, sa_stores = manager.get_sa_stores_by_logic_store(payload.logic_store_id)
-        if not share_store:
-            return JSONResponse({"success": False, "error_msg": "当前逻辑仓未找到聚合仓"}, status_code=400)
+            share_store, sa_stores = manager.get_sa_stores_by_logic_store(payload.logic_store_id)
+            if not share_store:
+                return {"success": False, "error_msg": "当前逻辑仓未找到聚合仓"}
 
-        sa_store = next((s for s in sa_stores if s.get("id") == payload.sa_store_id), None)
-        if not sa_store:
-            return JSONResponse({"success": False, "error_msg": "配销仓不存在或不属于当前逻辑仓"}, status_code=400)
+            sa_store = next((s for s in sa_stores if s.get("id") == payload.sa_store_id), None)
+            if not sa_store:
+                return {"success": False, "error_msg": "配销仓不存在或不属于当前逻辑仓"}
 
-        result = manager.execute_flow(logic_store, share_store, sa_store, sku_ecode, qty)
+            def on_step(s: dict) -> None:
+                emit(
+                    f"   - {s.get('step')}{s.get('result', '')}"
+                    + (f"；失败原因：{s['reason']}" if not s.get("success") and s.get("reason") else "")
+                )
 
-        if not result.get("success"):
-            reasons = []
-            for step in result.get("steps", []):
-                if not step.get("success") and step.get("reason"):
-                    reasons.append(f"{step.get('step')}: {step['reason']}")
-            return JSONResponse(
-                {"success": False, "error_msg": "；".join(reasons) or "库存调整执行未成功", "data": result}
-            )
-        return JSONResponse({"success": True, "error_msg": "", "data": result})
-    except Exception as exc:
-        return JSONResponse({"success": False, "error_msg": str(exc)}, status_code=500)
-    finally:
-        if manager:
-            manager.close()
+            result = manager.execute_flow(logic_store, share_store, sa_store, sku_ecode, qty, on_step=on_step)
+
+            if not result.get("success"):
+                reasons = []
+                for step in result.get("steps", []):
+                    if not step.get("success") and step.get("reason"):
+                        reasons.append(f"{step.get('step')}: {step['reason']}")
+                emit("✖ 调整库存执行失败")
+                return {"success": False, "error_msg": "；".join(reasons) or "库存调整执行未成功", "data": result}
+            emit("▸ 调整库存执行完成")
+            return {"success": True, "error_msg": "", "data": result}
+        except Exception as exc:
+            return {"success": False, "error_msg": str(exc)}
+        finally:
+            if manager:
+                manager.close()
+
+    return _sse_stream(run)
 
 
 # ---------------------------------------------------------------------------
@@ -1183,6 +1195,52 @@ class _ChainFailure(Exception):
         self.reason = reason
 
 
+def _sse_stream(run):
+    """在后台线程执行 run(emit)，通过 SSE 逐条推送日志，最后推送结果/错误。
+
+    run(emit) 的返回值作为 type=done 事件的 result 推给前端；异常则推送 type=fail。
+    """
+    q: "queue.Queue[tuple]" = queue.Queue()
+
+    def emit(msg: str) -> None:
+        q.put(("log", msg))
+
+    def worker() -> None:
+        try:
+            result = run(emit)
+            q.put(("done", result))
+        except Exception as exc:  # noqa: BLE001
+            try:
+                err = format_db_error(exc)
+            except Exception:
+                err = str(exc)
+            q.put(("fail", err))
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def gen():
+        while True:
+            try:
+                kind, payload = q.get(timeout=20)
+            except queue.Empty:
+                yield ": keepalive\n\n"
+                continue
+            if kind == "log":
+                yield f"data: {json.dumps({'type': 'log', 'message': payload}, ensure_ascii=False, default=str)}\n\n"
+            elif kind == "done":
+                yield f"data: {json.dumps({'type': 'done', 'result': payload}, ensure_ascii=False, default=str)}\n\n"
+                return
+            else:
+                yield f"data: {json.dumps({'type': 'fail', 'error': payload}, ensure_ascii=False, default=str)}\n\n"
+                return
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 def _log_advance_result(adv: dict, log) -> None:
     label = _NODE_LABEL.get(adv.get("status"), f"状态{adv.get('status')}")
     log(f"▸ 已推进到{label}")
@@ -1237,11 +1295,8 @@ def _poll_source_trans_status(env_key: str, tid: str, rounds: int = 10, interval
     return last
 
 
-def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, progress: list, auto_adjust_stock: bool = False):
+def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, log, auto_adjust_stock: bool = False):
     """standplat 平台完整节点串联：SOURCE -> 平台订单 -> 零售发货单 -> 按需推进。"""
-    def log(msg: str) -> None:
-        progress.append(msg)
-
     target = _STANDPLAT_CHAIN_TARGET.get(chain)
     stage = "平台订单报文"
 
@@ -1313,11 +1368,8 @@ _TAOBAO_TRANSFER = {"table": "IP_B_TAOBAO_ORDER", "tableid": 24421, "menu": "adt
 _JINGDONG_TRANSFER = {"table": "IP_B_JINGDONG_ORDER", "tableid": 24482, "menu": "adtable_24482"}
 
 
-def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, chain: str, progress: list, auto_adjust_stock: bool = False):
+def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, chain: str, log, auto_adjust_stock: bool = False):
     """淘宝/京东中间表串连接口：通用转单 -> 查询零售发货单 oc_b_order -> 按需推进。"""
-    def log(msg: str) -> None:
-        progress.append(msg)
-
     target = _TB_JD_CHAIN_TARGET.get(chain)
     stage = "接口"
 
@@ -1370,7 +1422,7 @@ def platform_order_generate(request: Request, payload: PlatformOrderGenerateIn):
     if gate:
         return gate
 
-    def respond(result: dict, status_code: int = 200):
+    def record(result: dict, status_code: int) -> None:
         """生成订单无论成功失败均写入调用历史。"""
         try:
             db_manager.insert_call_record(
@@ -1389,155 +1441,158 @@ def platform_order_generate(request: Request, payload: PlatformOrderGenerateIn):
             )
         except Exception as exc:  # 落库失败不影响接口返回
             logger.warning("写入生成订单历史失败: %s", exc)
-        return JSONResponse(result, status_code=status_code)
 
     env_key = _resolve_env_key(payload.env)
     if not payload.platform or not payload.scenario:
-        return respond({"success": False, "error_msg": "请选择平台与场景报文"}, status_code=400)
+        result = {"success": False, "error_msg": "请选择平台与场景报文"}
+        record(result, 400)
+        return JSONResponse(result, status_code=400)
     if not payload.editor_text.strip():
-        return respond({"success": False, "error_msg": "报文为空，请先点击「仅预览」"}, status_code=400)
+        result = {"success": False, "error_msg": "报文为空，请先点击「仅预览」"}
+        record(result, 400)
+        return JSONResponse(result, status_code=400)
 
-    progress: list = []
-    try:
-        editor_mq = parse_message_text(payload.editor_text)
-        msg_seller = extract_seller_nick(editor_mq) or ""
-        seller, shop = _resolve_seller_and_shop(env_key, payload.platform, payload.shop_id, msg_seller)
+    def run(emit):
+        def finish(result: dict, status_code: int = 200):
+            record(result, status_code)
+            return result
 
-        # 优化点1：首个节点按报文族路由到对应中间表
-        family = detect_message_family(editor_mq)
+        try:
+            editor_mq = parse_message_text(payload.editor_text)
+            msg_seller = extract_seller_nick(editor_mq) or ""
+            seller, shop = _resolve_seller_and_shop(env_key, payload.platform, payload.shop_id, msg_seller)
 
-        # 淘宝：写淘宝订单中间表，随后走通用转单串联 -> 零售发货单 oc_b_order
-        if family in ("jdp_array", "jdp_object"):
-            editor_mq, _new_tid = allocate_and_regenerate(env_key, editor_mq)
-            mid, tid = insert_taobao_order(env_key, editor_mq, shop)
-            progress.append(f"▸ 写入淘宝订单中间表 ip_b_taobao_order 成功（id={mid}, tid={tid}）")
-            chain = payload.chain or "淘宝订单接口"
-            try:
-                _run_tb_jd_chain(env_key, _TAOBAO_TRANSFER, mid, tid, chain, progress, payload.auto_adjust_stock)
-            except _ChainFailure as exc:
-                return respond(
+            # 优化点1：首个节点按报文族路由到对应中间表
+            family = detect_message_family(editor_mq)
+
+            # 淘宝：写淘宝订单中间表，随后走通用转单串联 -> 零售发货单 oc_b_order
+            if family in ("jdp_array", "jdp_object"):
+                editor_mq, _new_tid = allocate_and_regenerate(env_key, editor_mq)
+                mid, tid = insert_taobao_order(env_key, editor_mq, shop)
+                emit(f"▸ 写入淘宝订单中间表 ip_b_taobao_order 成功（id={mid}, tid={tid}）")
+                chain = payload.chain or "淘宝订单接口"
+                try:
+                    _run_tb_jd_chain(env_key, _TAOBAO_TRANSFER, mid, tid, chain, emit, payload.auto_adjust_stock)
+                except _ChainFailure as exc:
+                    return finish(
+                        {
+                            "success": False,
+                            "error_msg": f"{exc.node}节点失败：{exc.reason}",
+                            "tid": tid,
+                            "middle_table": "ip_b_taobao_order",
+                            "master_id": mid,
+                            "chain": chain,
+                            "failed_node": exc.node,
+                            "failure_reason": exc.reason,
+                        },
+                        status_code=500,
+                    )
+                return finish(
                     {
-                        "success": False,
-                        "error_msg": f"{exc.node}节点失败：{exc.reason}",
+                        "success": True,
+                        "error_msg": "",
                         "tid": tid,
                         "middle_table": "ip_b_taobao_order",
                         "master_id": mid,
                         "chain": chain,
-                        "progress": progress,
-                        "failed_node": exc.node,
-                        "failure_reason": exc.reason,
-                    },
-                    status_code=500,
+                        "failed_node": None,
+                        "failure_reason": None,
+                    }
                 )
-            return respond(
-                {
-                    "success": True,
-                    "error_msg": "",
-                    "tid": tid,
-                    "middle_table": "ip_b_taobao_order",
-                    "master_id": mid,
-                    "chain": chain,
-                    "progress": progress,
-                    "failed_node": None,
-                    "failure_reason": None,
-                }
-            )
 
-        # 京东：写京东订单中间表，随后走通用转单串联 -> 零售发货单 oc_b_order
-        if family == "jd_array":
-            editor_mq, _order_id = allocate_and_regenerate(env_key, editor_mq)
-            mid, order_id = insert_jingdong_order(env_key, editor_mq, shop)
-            progress.append(f"▸ 写入京东订单中间表 ip_b_jingdong_order 成功（id={mid}, orderId={order_id}）")
-            chain = payload.chain or "京东订单接口"
-            try:
-                _run_tb_jd_chain(env_key, _JINGDONG_TRANSFER, mid, order_id, chain, progress, payload.auto_adjust_stock)
-            except _ChainFailure as exc:
-                return respond(
+            # 京东：写京东订单中间表，随后走通用转单串联 -> 零售发货单 oc_b_order
+            if family == "jd_array":
+                editor_mq, _order_id = allocate_and_regenerate(env_key, editor_mq)
+                mid, order_id = insert_jingdong_order(env_key, editor_mq, shop)
+                emit(f"▸ 写入京东订单中间表 ip_b_jingdong_order 成功（id={mid}, orderId={order_id}）")
+                chain = payload.chain or "京东订单接口"
+                try:
+                    _run_tb_jd_chain(env_key, _JINGDONG_TRANSFER, mid, order_id, chain, emit, payload.auto_adjust_stock)
+                except _ChainFailure as exc:
+                    return finish(
+                        {
+                            "success": False,
+                            "error_msg": f"{exc.node}节点失败：{exc.reason}",
+                            "tid": order_id,
+                            "middle_table": "ip_b_jingdong_order",
+                            "master_id": mid,
+                            "chain": chain,
+                            "failed_node": exc.node,
+                            "failure_reason": exc.reason,
+                        },
+                        status_code=500,
+                    )
+                return finish(
                     {
-                        "success": False,
-                        "error_msg": f"{exc.node}节点失败：{exc.reason}",
+                        "success": True,
+                        "error_msg": "",
                         "tid": order_id,
                         "middle_table": "ip_b_jingdong_order",
                         "master_id": mid,
                         "chain": chain,
-                        "progress": progress,
+                        "failed_node": None,
+                        "failure_reason": None,
+                    }
+                )
+
+            # 其他平台：写平台订单报文中间表，走订单节点串联
+            meta = get_platform_meta(payload.platform, load_config())
+            if meta.get("platform_id") is None:
+                return finish(
+                    {"success": False, "error_msg": f"平台「{payload.platform}」缺少 platform_id 配置"},
+                    status_code=400,
+                )
+
+            preview_tid = extract_tid(editor_mq)
+            if not preview_tid:
+                return finish({"success": False, "error_msg": "无法从报文中识别 tid"}, status_code=400)
+
+            build = BuildResult(
+                mq_message=editor_mq,
+                db_message="",
+                tid=preview_tid,
+                platform_id=int(meta["platform_id"]),
+                method=meta.get("method") or "",
+                seller_nick=seller,
+                shop=shop,
+            )
+            db_msg, tid = finalize_build_for_insert(env_key, build, editor_mq)
+            source_id = insert_source(env_key, build, db_msg, tid)
+            emit(f"▸ 写入平台订单报文中间表(SOURCE)成功（id={source_id}, tid={tid}）")
+
+            chain = payload.chain or "平台订单报文"
+            try:
+                _run_standplat_chain(env_key, source_id, tid, chain, emit, payload.auto_adjust_stock)
+            except _ChainFailure as exc:
+                return finish(
+                    {
+                        "success": False,
+                        "error_msg": f"{exc.node}节点失败：{exc.reason}",
+                        "source_id": source_id,
+                        "tid": tid,
                         "failed_node": exc.node,
                         "failure_reason": exc.reason,
                     },
                     status_code=500,
                 )
-            return respond(
+
+            return finish(
                 {
                     "success": True,
                     "error_msg": "",
-                    "tid": order_id,
-                    "middle_table": "ip_b_jingdong_order",
-                    "master_id": mid,
+                    "source_id": source_id,
+                    "tid": tid,
                     "chain": chain,
-                    "progress": progress,
                     "failed_node": None,
                     "failure_reason": None,
                 }
             )
+        except ValueError as exc:
+            return finish({"success": False, "error_msg": str(exc)}, status_code=400)
+        except Exception as exc:
+            return finish({"success": False, "error_msg": format_db_error(exc)}, status_code=500)
 
-        # 其他平台：写平台订单报文中间表，走订单节点串联
-        meta = get_platform_meta(payload.platform, load_config())
-        if meta.get("platform_id") is None:
-            return respond(
-                {"success": False, "error_msg": f"平台「{payload.platform}」缺少 platform_id 配置"},
-                status_code=400,
-            )
-
-        preview_tid = extract_tid(editor_mq)
-        if not preview_tid:
-            return respond({"success": False, "error_msg": "无法从报文中识别 tid"}, status_code=400)
-
-        build = BuildResult(
-            mq_message=editor_mq,
-            db_message="",
-            tid=preview_tid,
-            platform_id=int(meta["platform_id"]),
-            method=meta.get("method") or "",
-            seller_nick=seller,
-            shop=shop,
-        )
-        db_msg, tid = finalize_build_for_insert(env_key, build, editor_mq)
-        source_id = insert_source(env_key, build, db_msg, tid)
-        progress.append(f"▸ 写入平台订单报文中间表(SOURCE)成功（id={source_id}, tid={tid}）")
-
-        chain = payload.chain or "平台订单报文"
-        try:
-            _run_standplat_chain(env_key, source_id, tid, chain, progress, payload.auto_adjust_stock)
-        except _ChainFailure as exc:
-            return respond(
-                {
-                    "success": False,
-                    "error_msg": f"{exc.node}节点失败：{exc.reason}",
-                    "source_id": source_id,
-                    "tid": tid,
-                    "progress": progress,
-                    "failed_node": exc.node,
-                    "failure_reason": exc.reason,
-                },
-                status_code=500,
-            )
-
-        return respond(
-            {
-                "success": True,
-                "error_msg": "",
-                "source_id": source_id,
-                "tid": tid,
-                "chain": chain,
-                "progress": progress,
-                "failed_node": None,
-                "failure_reason": None,
-            }
-        )
-    except ValueError as exc:
-        return respond({"success": False, "error_msg": str(exc)}, status_code=400)
-    except Exception as exc:
-        return respond({"success": False, "error_msg": format_db_error(exc)}, status_code=500)
+    return _sse_stream(run)
 
 
 @app.post("/api/platform-order/replace-seller")
@@ -1684,41 +1739,35 @@ def reverse_order_generate(request: Request, payload: ReverseOrderGenerateIn):
         return JSONResponse({"success": False, "error_msg": "请选择平台与逆向场景报文"}, status_code=400)
     if not tid:
         return JSONResponse({"success": False, "error_msg": "请填写平台单号（零售发货单 tid）"}, status_code=400)
-    progress: list = []
-    try:
-        def log(msg: str) -> None:
-            progress.append(msg)
 
-        log("▶ 开始执行逆向造单")
-        log("▸ 构建逆向售后报文。。")
-        base = build_reverse_message(env_key, platform, scenario, tid)
-        build = parse_reverse_editor(payload.editor_text, base) if payload.editor_text.strip() else base
-        log(f"▸ 逆向售后报文构建完成（return_no={build.return_no}）")
+    def run(emit):
+        try:
+            emit("▶ 开始执行逆向造单")
+            emit("▸ 构建逆向售后报文。。")
+            base = build_reverse_message(env_key, platform, scenario, tid)
+            build = parse_reverse_editor(payload.editor_text, base) if payload.editor_text.strip() else base
+            emit(f"▸ 逆向售后报文构建完成（return_no={build.return_no}）")
 
-        log("▸ 写入平台售后申请中间表(ip_b_platform_return_order)中。。")
-        row_id = insert_platform_return_order(env_key, build)
-        log(f"▸ 写入完成（id={row_id}）")
+            emit("▸ 写入平台售后申请中间表(ip_b_platform_return_order)中。。")
+            row_id = insert_platform_return_order(env_key, build)
+            emit(f"▸ 写入完成（id={row_id}）")
 
-        log("▸ 执行售后转换(batchConvert)中。。")
-        transfer_result = run_reverse_transfer(env_key, row_id, on_step=log)
-        log("▸ 逆向造单完成")
-        return JSONResponse(
-            {
+            emit("▸ 执行售后转换(batchConvert)中。。")
+            transfer_result = run_reverse_transfer(env_key, row_id, on_step=emit)
+            emit("▸ 逆向造单完成")
+            return {
                 "success": True,
                 "error_msg": "",
                 "return_order_id": row_id,
                 "return_no": build.return_no,
                 "tid": build.tid,
                 "transfer": transfer_result,
-                "progress": progress,
             }
-        )
-    except Exception as exc:
-        log(f"✖ 逆向造单失败：{format_db_error(exc)}")
-        return JSONResponse(
-            {"success": False, "error_msg": format_db_error(exc), "progress": progress},
-            status_code=500,
-        )
+        except Exception as exc:
+            emit(f"✖ 逆向造单失败：{format_db_error(exc)}")
+            return {"success": False, "error_msg": format_db_error(exc)}
+
+    return _sse_stream(run)
 
 
 # ---------------------------------------------------------------------------
