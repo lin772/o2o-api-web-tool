@@ -154,8 +154,8 @@ def replace_tid_deep(obj: Any, old: str, new: str) -> Any:
 def _replace_values_deep(obj: Any, mapping: Dict[str, str]) -> Any:
     """按值深度替换，全程保留字符串，避免长订单号被转回 int 丢失精度。
 
-    需求点：19 位主单号、21 位子单号（主单号 + 两位序号）都远超 BIGINT 上限，
-    必须维持字符串，否则 JSON 序列化 / 落库会精度溢出。旧 replace_tid_deep 里
+    需求点：19 位主单号 / 子单号都超出 JS 安全整数，且子单号「序号嵌中段」仍为
+    19 位、远超 BIGINT 上限，必须维持字符串，否则 JSON 序列化 / 落库会精度溢出。旧 replace_tid_deep 里
     ``str(type(obj))`` 恒为真、会把新字符串再转回 int，这里不复用它的数值分支。
 
     规则：
@@ -211,7 +211,17 @@ def _trade_orders(trade: Any) -> List[Dict[str, Any]]:
 def _renumber_items(items: List[Dict[str, Any]], new_tid: str) -> Dict[str, str]:
     """给订单全部明细（主品+赠品，按数组顺序）就地编号子单号。
 
-    单明细 -> new_tid；多明细 -> new_tid + 两位序号（01 起，按数组顺序）。
+    单明细 -> new_tid（19 位，不变）。
+    多明细 -> 保持 19 位，序号嵌入子单号中段（对齐真实淘宝 oid 结构）：
+        new_tid[:3] + str(i)*2 + new_tid[5:]
+      例如 new_tid="8882462026102300001"：
+        明细1 -> "88811" + 中段  -> "8881162026102300001"
+        明细2 -> "8882262026102300001"
+      逐行唯一，且不等于 tid（避免落库后 OID 退化成 TID）。
+
+    19 位内只用两位承载序号，故明细数仅支持 1..9；超过 9 个明细时直接报错，
+    而不是静默产出超长、错误的子单号。
+
     子单号字段 oid / oid_str 直接按位置就地写入，保证每行明细子单号唯一——即便同一
     订单内多个明细的旧 oid 相同（例如复制明细造多明细、或仅主品 oid==tid 被复制），
     也不会因为「旧 oid 作为 dict key」而互相覆盖导致落库 OID 重复。
@@ -221,12 +231,20 @@ def _renumber_items(items: List[Dict[str, Any]], new_tid: str) -> Dict[str, str]
     setdefault，仅保留第一条旧 oid，避免同值覆盖。
     """
     single = len(items) <= 1
+    if not single and len(items) > 9:
+        raise ValueError(
+            f"多明细子单号目前仅支持最多 9 个明细（当前 {len(items)} 个），"
+            f"无法在 19 位内嵌入序号"
+        )
     mapping: Dict[str, str] = {}
     for i, m in enumerate(items, start=1):
         if not isinstance(m, dict):
             continue
         old_oid = _oid(m)
-        new_oid = new_tid if single else f"{new_tid}{i:02d}"
+        if single:
+            new_oid = new_tid
+        else:
+            new_oid = f"{new_tid[:3]}{i}{i}{new_tid[5:]}"
         if "oid" in m:
             m["oid"] = new_oid
         if "oid_str" in m:
@@ -304,11 +322,12 @@ def regenerate_order_numbers(raw: Any, origin_tid: str, new_tid: str) -> Any:
       - standplat（抖音等）：主单号 tid + items[].oid；
       - 其他未知结构：按值把原单号替换为新单号。
 
-    编号规则（需求原文）：
-      - 单商品：子单号直接取新单号 new_tid；
-      - 多商品：第一行子单号 = new_tid + 「01」，第二行 +「02」，依次类推；
-      - 赠品：作为独立明细参与编号（「01」/「02」依次递增），其挂靠主品的引用字段
-        （gift_mids / gift_main_oid 等）由深度按值替换自动指向主品新子单号。
+    编号规则：
+      - 单商品：子单号直接取新单号 new_tid（19 位，不变）；
+      - 多商品：子单号保持 19 位，序号嵌入中段 new_tid[:3] + str(i)*2 + new_tid[5:]，
+        逐行唯一且不等于 tid（1..9 个明细；超过 9 个会报错）；
+      - 赠品：作为独立明细参与编号，其挂靠主品的引用字段（gift_mids / gift_main_oid 等）
+        由深度按值替换自动指向主品新子单号。
 
     调用示例：
         from message_service import regenerate_order_numbers
