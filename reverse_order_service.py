@@ -132,12 +132,6 @@ def build_reverse_message(
     return build_reverse_preview(platform, scenario, tid, order, items, return_no=return_no)
 
 
-def alloc_return_order_id(order_conn) -> int:
-    with order_conn.cursor() as cur:
-        cur.execute("SELECT MAX(id) AS m FROM ip_b_platform_return_order")
-        return int((cur.fetchone() or {}).get("m") or 0) + 1
-
-
 def insert_platform_return_order(env_key: str, build: ReverseBuildResult) -> int:
     """写入 ip_b_platform_return_order（original_message 仅存 data[0]，与 MQ 一致）。"""
     cfg = load_config()
@@ -148,9 +142,7 @@ def insert_platform_return_order(env_key: str, build: ReverseBuildResult) -> int
 
     order_conn = db_connect(env["order_db"], cfg)
     try:
-        row_id = alloc_return_order_id(order_conn)
         row = {
-            "id": row_id,
             "cp_c_shop_id": shop.get("id") or build.shop_id,
             "seller_nick": shop.get("seller_nick") or build.seller_nick,
             "cp_c_platform_id": build.platform_id,
@@ -182,6 +174,7 @@ def insert_platform_return_order(env_key: str, build: ReverseBuildResult) -> int
                 f"VALUES ({', '.join(['%s'] * len(data))})",
                 tuple(data.values()),
             )
+            row_id = cur.lastrowid
         order_conn.commit()
         return row_id
     finally:

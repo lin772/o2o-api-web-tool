@@ -157,19 +157,6 @@ class DBOrderSourceManager:
             print(f"获取SKU列表失败: {e}")
             return []
 
-    def get_max_id(self) -> Optional[int]:
-        """获取当前表中最大的 id 值"""
-        try:
-            with self.connection.cursor() as cursor:
-                sql = "SELECT MAX(id) as max_id FROM IP_B_PLATFORM_ORDER_SOURCE"
-                cursor.execute(sql)
-                result = cursor.fetchone()
-                max_id = result.get('max_id') if result else None
-                return max_id if max_id is not None else 0
-        except Exception as e:
-            print(f"获取最大ID失败: {e}")
-            return None
-
     def get_max_tid(self) -> Optional[str]:
         """获取当前表中最大的 tid 值"""
         try:
@@ -255,18 +242,20 @@ class DBOrderSourceManager:
                     result['message'] = f'未找到 SKU编码为 {sku_ecode} 的商品信息'
                     return result
 
-            max_id = self.get_max_id()
             max_tid = self.get_max_tid()
 
-            if max_id is None or max_tid is None:
-                result['message'] = '获取最大 ID 或 TID 失败'
+            if max_tid is None:
+                result['message'] = '获取最大 TID 失败'
                 return result
 
-            new_id = max_id + 1
-            new_tid = str(int(max_tid) + 1) if max_tid and max_tid.isdigit() else str(new_id)
+            if max_tid and str(max_tid).isdigit():
+                new_tid = str(int(max_tid) + 1)
+            else:
+                result['message'] = '当前表无有效数字 TID，无法生成新单号'
+                return result
 
             new_data = source_data.copy()
-            new_data['id'] = new_id
+            new_data.pop('id', None)
             new_data['tid'] = new_tid
 
             if shop_info:
@@ -297,6 +286,7 @@ class DBOrderSourceManager:
 
             with self.connection.cursor() as cursor:
                 cursor.execute(sql, tuple(new_data.values()))
+                new_id = cursor.lastrowid
                 self.connection.commit()
 
             result['success'] = True

@@ -209,12 +209,6 @@ def allocate_and_regenerate(env_key: str, editor_mq: Any) -> Tuple[Any, str]:
     return mq_final, new_tid
 
 
-def alloc_source_id(order_conn) -> int:
-    with order_conn.cursor() as cur:
-        cur.execute("SELECT MAX(id) AS m FROM IP_B_PLATFORM_ORDER_SOURCE")
-        return int((cur.fetchone() or {}).get("m") or 0) + 1
-
-
 def insert_source(
     env_key: str,
     build: BuildResult,
@@ -229,9 +223,7 @@ def insert_source(
 
     order_conn = db_connect(env["order_db"])
     try:
-        source_id = alloc_source_id(order_conn)
         row = {
-            "id": source_id,
             "tid": tid,
             "platform_id": build.platform_id,
             "seller_nick": build.seller_nick,
@@ -254,6 +246,7 @@ def insert_source(
                 f"VALUES ({', '.join(['%s'] * len(data))})",
                 tuple(data.values()),
             )
+            source_id = cur.lastrowid
         order_conn.commit()
         return source_id
     finally:

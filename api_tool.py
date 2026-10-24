@@ -824,22 +824,6 @@ class OrderCopyManager:
             print(f"查询SKU信息失败: {e}")
             return None
 
-    def get_max_id(self) -> Optional[int]:
-        """获取当前表中最大的 id 值"""
-        try:
-            if not self.order_conn:
-                if not self.connect_order_db():
-                    return None
-            with self.order_conn.cursor() as cursor:
-                sql = "SELECT MAX(id) as max_id FROM IP_B_PLATFORM_ORDER_SOURCE"
-                cursor.execute(sql)
-                result = cursor.fetchone()
-                max_id = result.get('max_id') if result else None
-                return max_id if max_id is not None else 0
-        except Exception as e:
-            print(f"获取最大ID失败: {e}")
-            return None
-
     def get_max_tid(self) -> Optional[int]:
         """获取当前表中最大的数字 tid 值。"""
         try:
@@ -909,25 +893,17 @@ class OrderCopyManager:
                 result['message'] = f'未找到源订单: {source_tid}'
                 return result
 
-            # 获取当前最大id并+1
-            max_id = self.get_max_id()
-            if max_id is None:
-                result['message'] = '获取最大ID失败'
-                return result
-            
-            new_id = max_id + 1
-            
-            # 获取当前最大tid并+1（避免与已有数据冲突）
+            # 获取当前最大数字 tid 并 +1（避免与已有数据冲突）
             max_tid = self.get_max_tid()
             if max_tid is None:
                 result['message'] = '获取最大TID失败'
                 return result
-            
+
             new_tid = str(max_tid + 1)
 
-            # 复制订单数据
+            # 复制订单数据（主键 id 交由数据库自增生成，不手动写入）
             new_order = source_order.copy()
-            new_order['id'] = new_id
+            new_order.pop('id', None)
             new_order['tid'] = new_tid
             # 移除不存在的字段
             if 'create_time' in new_order:
@@ -999,6 +975,7 @@ class OrderCopyManager:
 
             with self.order_conn.cursor() as cursor:
                 cursor.execute(sql, tuple(new_order[k] for k in columns))
+                new_id = cursor.lastrowid
                 self.order_conn.commit()
 
             result['success'] = True
