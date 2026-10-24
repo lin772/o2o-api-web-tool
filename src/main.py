@@ -47,6 +47,7 @@ from api_tool import (
     OrderCopyManager,
     StockAdjustToolManager,
     advance_retail_order_to_target,
+    auto_adjust_stock_for_retail_order,
     query_platform_order_by_tid,
     query_platform_order_source_by_tid,
     query_retail_order_by_tid,
@@ -962,6 +963,7 @@ class PlatformOrderGenerateIn(BaseModel):
     shop_id: int | None = None
     editor_text: str = ""
     chain: str = ""
+    auto_adjust_stock: bool = False
 
 
 class ReplaceSellerIn(BaseModel):
@@ -1239,7 +1241,7 @@ def _poll_source_trans_status(env_key: str, tid: str, rounds: int = 10, interval
     return last
 
 
-def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, progress: list):
+def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, progress: list, auto_adjust_stock: bool = False):
     """standplat 平台完整节点串联：SOURCE -> 平台订单 -> 零售发货单 -> 按需推进。"""
     def log(msg: str) -> None:
         progress.append(msg)
@@ -1304,6 +1306,11 @@ def _run_standplat_chain(env_key: str, source_id: int, tid: str, chain: str, pro
             log("▸ 零售发货单状态=已取消，结束制单流程")
         else:
             _advance_retail_to_node(env_key, retail["id"], target, log)
+            if auto_adjust_stock and query_retail_order_status(env_key, retail["id"]) == 2:
+                log("▸ 零售发货单 order_status=2 且已勾选自动调整库存，开始自动调整库存")
+                auto_adjust_stock_for_retail_order(
+                    env_key, retail["id"], retail.get("cp_c_shop_id"), log=log
+                )
 
         log("▸ 节点串联完成。。")
     except Exception as exc:
@@ -1315,7 +1322,7 @@ _TAOBAO_TRANSFER = {"table": "IP_B_TAOBAO_ORDER", "tableid": 24421, "menu": "adt
 _JINGDONG_TRANSFER = {"table": "IP_B_JINGDONG_ORDER", "tableid": 24482, "menu": "adtable_24482"}
 
 
-def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, chain: str, progress: list):
+def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, chain: str, progress: list, auto_adjust_stock: bool = False):
     """淘宝/京东中间表串连接口：通用转单 -> 查询零售发货单 oc_b_order -> 按需推进。"""
     def log(msg: str) -> None:
         progress.append(msg)
@@ -1353,6 +1360,11 @@ def _run_tb_jd_chain(env_key: str, transfer: dict, master_id: int, tid: str, cha
         else:
             stage = _NODE_LABEL.get(target, "节点")
             _advance_retail_to_node(env_key, retail["id"], target, log)
+            if auto_adjust_stock and query_retail_order_status(env_key, retail["id"]) == 2:
+                log("▸ 零售发货单 order_status=2 且已勾选自动调整库存，开始自动调整库存")
+                auto_adjust_stock_for_retail_order(
+                    env_key, retail["id"], retail.get("cp_c_shop_id"), log=log
+                )
 
         log("▸ 节点串联完成。。")
     except Exception as exc:
@@ -1412,7 +1424,7 @@ def platform_order_generate(request: Request, payload: PlatformOrderGenerateIn):
             progress.append(f"▸ 写入淘宝订单中间表 ip_b_taobao_order 成功（id={mid}, tid={tid}）")
             chain = payload.chain or "淘宝订单接口"
             try:
-                _run_tb_jd_chain(env_key, _TAOBAO_TRANSFER, mid, tid, chain, progress)
+                _run_tb_jd_chain(env_key, _TAOBAO_TRANSFER, mid, tid, chain, progress, payload.auto_adjust_stock)
             except _ChainFailure as exc:
                 return respond(
                     {
@@ -1449,7 +1461,7 @@ def platform_order_generate(request: Request, payload: PlatformOrderGenerateIn):
             progress.append(f"▸ 写入京东订单中间表 ip_b_jingdong_order 成功（id={mid}, orderId={order_id}）")
             chain = payload.chain or "京东订单接口"
             try:
-                _run_tb_jd_chain(env_key, _JINGDONG_TRANSFER, mid, order_id, chain, progress)
+                _run_tb_jd_chain(env_key, _JINGDONG_TRANSFER, mid, order_id, chain, progress, payload.auto_adjust_stock)
             except _ChainFailure as exc:
                 return respond(
                     {
@@ -1506,7 +1518,7 @@ def platform_order_generate(request: Request, payload: PlatformOrderGenerateIn):
 
         chain = payload.chain or "平台订单报文"
         try:
-            _run_standplat_chain(env_key, source_id, tid, chain, progress)
+            _run_standplat_chain(env_key, source_id, tid, chain, progress, payload.auto_adjust_stock)
         except _ChainFailure as exc:
             return respond(
                 {
@@ -1683,11 +1695,24 @@ def reverse_order_generate(request: Request, payload: ReverseOrderGenerateIn):
         return JSONResponse({"success": False, "error_msg": "请选择平台与逆向场景报文"}, status_code=400)
     if not tid:
         return JSONResponse({"success": False, "error_msg": "请填写平台单号（零售发货单 tid）"}, status_code=400)
+    progress: list = []
     try:
+        def log(msg: str) -> None:
+            progress.append(msg)
+
+        log("▶ 开始执行逆向造单")
+        log("▸ 构建逆向售后报文。。")
         base = build_reverse_message(env_key, platform, scenario, tid)
         build = parse_reverse_editor(payload.editor_text, base) if payload.editor_text.strip() else base
+        log(f"▸ 逆向售后报文构建完成（return_no={build.return_no}）")
+
+        log("▸ 写入平台售后申请中间表(ip_b_platform_return_order)中。。")
         row_id = insert_platform_return_order(env_key, build)
-        transfer_result = run_reverse_transfer(env_key, row_id)
+        log(f"▸ 写入完成（id={row_id}）")
+
+        log("▸ 执行售后转换(batchConvert)中。。")
+        transfer_result = run_reverse_transfer(env_key, row_id, on_step=log)
+        log("▸ 逆向造单完成")
         return JSONResponse(
             {
                 "success": True,
@@ -1696,10 +1721,15 @@ def reverse_order_generate(request: Request, payload: ReverseOrderGenerateIn):
                 "return_no": build.return_no,
                 "tid": build.tid,
                 "transfer": transfer_result,
+                "progress": progress,
             }
         )
     except Exception as exc:
-        return JSONResponse({"success": False, "error_msg": format_db_error(exc)}, status_code=500)
+        log(f"✖ 逆向造单失败：{format_db_error(exc)}")
+        return JSONResponse(
+            {"success": False, "error_msg": format_db_error(exc), "progress": progress},
+            status_code=500,
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import json
 import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
@@ -136,6 +135,17 @@ class ReverseOrderApp:
         configure_log_text(self.preview_text, mono=self.mono_font)
         self.preview_text.pack(fill=tk.BOTH, expand=True)
 
+        log_frame = ttk.LabelFrame(
+            self.root,
+            text=" 运行日志（执行一步输出一步） ",
+            style="Card.TLabelframe",
+        )
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=SECTION_PADX, pady=(0, SECTION_GAP))
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=10, wrap=tk.NONE)
+        configure_log_text(self.log_text, mono=self.mono_font)
+        self.log_text.configure(insertbackground="#FFFFFF")
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+
         ttk.Label(self.root, textvariable=self.status_var, style="Hint.TLabel", font=fd, anchor="w").pack(
             fill=tk.X, padx=SECTION_PADX, pady=(0, 8)
         )
@@ -179,6 +189,17 @@ class ReverseOrderApp:
             raise ValueError("请填写平台单号（零售发货单 tid）")
         return platform, scenario, tid
 
+    def _clear_log(self) -> None:
+        self.log_text.delete("1.0", tk.END)
+
+    def _log(self, msg: str) -> None:
+        self.root.after(0, lambda m=msg: self._append_log(m))
+
+    def _append_log(self, msg: str) -> None:
+        self.log_text.insert(tk.END, msg + "\n")
+        self.log_text.see(tk.END)
+        self.root.update_idletasks()
+
     def _preview(self) -> None:
         try:
             platform, scenario, tid = self._validate_inputs()
@@ -198,30 +219,33 @@ class ReverseOrderApp:
             messagebox.showerror("预览失败", format_db_error(e))
 
     def _generate(self) -> None:
+        self._clear_log()
+
+        def emit(msg: str) -> None:
+            self._log(msg)
+
         def task():
             try:
                 platform, scenario, tid = self._validate_inputs()
+                emit("▸ 读取编辑器报文")
                 editor_text = self.preview_text.get("1.0", tk.END).strip()
                 if editor_text:
                     ensure_retail_order_platform_match(self._env_key(), platform, tid, cfg=self.cfg)
+                    emit("▸ 校验零售发货单平台一致")
                     build = parse_reverse_editor(editor_text, self.last_build)
+                    emit("▸ 解析编辑器报文")
                 else:
                     build = build_reverse_message(self._env_key(), platform, scenario, tid)
+                    emit("▸ 构建逆向报文")
 
                 row_id = insert_platform_return_order(self._env_key(), build)
-                transfer_result = run_reverse_transfer(self._env_key(), row_id)
-                lines = [
-                    f"已写入 ip_b_platform_return_order id={row_id}",
-                    f"return_no={build.return_no} tid={build.tid}",
-                    f"转单: {json.dumps(transfer_result, ensure_ascii=False, default=str)[:600]}",
-                ]
-
-                def done():
-                    messagebox.showinfo("生成成功", "\n".join(lines))
-                    self.status_var.set(f"售后申请已生成 id={row_id} return_no={build.return_no}")
-
-                self.root.after(0, done)
+                emit(f"▸ 已写入 ip_b_platform_return_order id={row_id}")
+                emit(f"▸ return_no={build.return_no} tid={build.tid}")
+                run_reverse_transfer(self._env_key(), row_id, on_step=emit)
+                emit("▸ 售后申请生成完成")
+                self.root.after(0, lambda: self.status_var.set(f"售后申请已生成 id={row_id} return_no={build.return_no}"))
             except Exception as e:
+                emit(f"✗ 生成失败：{format_db_error(e)}")
                 self.root.after(0, lambda err=e: messagebox.showerror("生成失败", format_db_error(err)))
 
         self.status_var.set("正在生成售后申请...")

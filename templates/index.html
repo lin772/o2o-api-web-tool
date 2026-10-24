@@ -527,6 +527,10 @@
                             </div>
                             <div class="form-row align-fields">
                                 <div class="form-field"><label>节点串联</label><select data-chain></select></div>
+                                <div class="form-field fixed">
+                                    <input type="checkbox" data-auto-adjust-stock style="width:auto; flex:0 0 auto;" />
+                                    <span style="white-space:nowrap;">是否自动调整库存</span>
+                                </div>
                             </div>
                             <div class="form-row" style="margin-bottom:0;">
                                 <div class="form-field grow"><div class="sku-slots" data-sku-slots></div></div>
@@ -1520,12 +1524,14 @@
             const nickInput = panel.querySelector('[data-forward-seller-nick]');
             const envSel = panel.querySelector('[data-forward-env]');
             const chainSel = panel.querySelector('[data-chain]');
+            const autoAdjustEl = panel.querySelector('[data-auto-adjust-stock]');
             return {
                 platform: (panel.querySelector('[data-platform]') || {}).value || '',
                 scenario: (panel.querySelector('[data-scenario]') || {}).value || '',
                 sellerNick: nickInput ? (nickInput.value || '').trim() : '',
                 env: (envSel && envSel.value) || getCurrentEnv(),
-                chain: (chainSel && chainSel.value) || ''
+                chain: (chainSel && chainSel.value) || '',
+                autoAdjustStock: !!(autoAdjustEl && autoAdjustEl.checked)
             };
         }
 
@@ -1654,7 +1660,7 @@
             fetch('/api/platform-order/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ env: f.env, platform: f.platform, scenario: f.scenario, editor_text: editorText, chain: f.chain }),
+                body: JSON.stringify({ env: f.env, platform: f.platform, scenario: f.scenario, editor_text: editorText, chain: f.chain, auto_adjust_stock: f.autoAdjustStock }),
                 signal: controller.signal
             })
                 .then(function (r) { return r.json(); })
@@ -1783,12 +1789,17 @@
                 .then(function (data) {
                     if (data && data.success) {
                         if (status) { setStatus(status, 'success', '生成成功'); }
-                        if (codeEl) { renderHighlight(codeEl, JSON.stringify({ return_order_id: data.return_order_id, return_no: data.return_no, tid: data.tid, transfer: data.transfer }, null, 2)); }
+                        const progress = (data.progress || []).join('\n');
+                        const summary = { return_order_id: data.return_order_id, return_no: data.return_no, tid: data.tid };
+                        if (codeEl) { renderHighlight(codeEl, progress + (progress ? '\n\n' : '') + JSON.stringify(summary, null, 2)); }
                         showToast('生成售后申请成功，return_no=' + (data.return_no || '-'), 'success');
                     } else {
                         const errMsg = (data && data.error_msg) || '未知错误';
+                        const progress = (data && data.progress) ? data.progress.join('\n') : '';
+                        let out = progress ? (progress + '\n\n') : '';
+                        out += errMsg;
                         if (status) { setStatus(status, 'error', '生成失败'); }
-                        if (codeEl) { renderHighlight(codeEl, errMsg); }
+                        if (codeEl) { renderHighlight(codeEl, out); }
                         showToast('生成失败：' + errMsg, 'error');
                     }
                 })

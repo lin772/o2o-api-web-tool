@@ -16,6 +16,7 @@ O2O API 测试工具（集成版）
 from __future__ import annotations
 
 import json
+import random
 import re
 import sys
 import threading
@@ -265,10 +266,25 @@ def query_retail_order_by_tid(env_key: str, tid: str) -> Optional[Dict[str, Any]
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, order_status FROM oc_b_order WHERE tid = %s ORDER BY id DESC LIMIT 1",
+                "SELECT id, order_status, cp_c_shop_id FROM oc_b_order WHERE tid = %s ORDER BY id DESC LIMIT 1",
                 (tid,),
             )
             return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def query_retail_order_lost_items(env_key: str, retail_order_id: int) -> List[Dict[str, Any]]:
+    """查询零售发货单明细中缺货数量(qty_lost)不等于 0 的明细行。"""
+    conn = _order_db_connect(env_key)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT ps_c_sku_ecode, qty_lost, qty FROM oc_b_order_item "
+                "WHERE oc_b_order_id = %s AND qty_lost <> 0 ORDER BY id",
+                (retail_order_id,),
+            )
+            return cur.fetchall()
     finally:
         conn.close()
 
@@ -1448,6 +1464,65 @@ class StockAdjustToolManager:
         rows = self._query_base("SELECT * FROM ps_c_sku WHERE ecode = %s LIMIT 1", (sku_ecode,))
         return rows[0] if rows else None
 
+    def derive_adjust_targets_by_shop(
+        self, shop_id: Any
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """按下单店铺推导库存调整目标：逻辑仓、聚合仓、配销仓。
+
+        链路：cp_c_shop_id -> sg_c_sa_sourcing_priority_strategy ->
+        sg_c_sa_sourcing_priority_strategy_item(取 sg_c_sa_store_orderno 最大) ->
+        sg_c_sa_store(所属聚合仓) -> cp_c_store(逻辑仓，多则随机取一)。
+        """
+        if shop_id is None:
+            return None, None, None
+        item_rows = self._query_sg(
+            """
+            SELECT item.sg_c_sa_store_id AS sa_store_id,
+                   c.sg_c_share_store_id AS share_store_id
+            FROM sg_c_sa_sourcing_priority_strategy_item item
+            INNER JOIN sg_c_sa_sourcing_priority_strategy main
+                    ON main.id = item.sg_c_sa_sourcing_priority_strategy_id
+            INNER JOIN sg_c_sa_store c ON c.id = item.sg_c_sa_store_id
+            WHERE main.cp_c_shop_id = %s
+              AND main.isactive = 'Y'
+              AND item.isactive = 'Y'
+              AND c.isactive = 'Y'
+            ORDER BY COALESCE(item.sg_c_sa_store_orderno, 0) DESC, item.id DESC
+            LIMIT 1
+            """,
+            (shop_id,),
+        )
+        if not item_rows:
+            return None, None, None
+        row = item_rows[0]
+        sa_store_id = row.get("sa_store_id")
+        share_store_id = row.get("share_store_id")
+
+        sa_store = None
+        if sa_store_id:
+            sa_rows = self._query_sg(
+                "SELECT id, ecode, ename FROM sg_c_sa_store WHERE id = %s AND isactive = 'Y' LIMIT 1",
+                (sa_store_id,),
+            )
+            sa_store = sa_rows[0] if sa_rows else {"id": sa_store_id, "ecode": "", "ename": ""}
+
+        if not share_store_id:
+            return None, None, sa_store
+
+        share_rows = self._query_sg(
+            "SELECT id, ecode, ename FROM sg_c_share_store WHERE id = %s AND isactive = 'Y' LIMIT 1",
+            (share_store_id,),
+        )
+        share_store = share_rows[0] if share_rows else {"id": share_store_id, "ecode": "", "ename": ""}
+
+        logic_rows = self._query_base(
+            "SELECT id, ecode, ename, sg_c_share_store_id, ad_client_id FROM cp_c_store "
+            "WHERE sg_c_share_store_id = %s AND isactive = 'Y'",
+            (share_store_id,),
+        )
+        logic_store = random.choice(logic_rows) if logic_rows else None
+        return logic_store, share_store, sa_store
+
     def _oms_username(self) -> str:
         login_cfg = self.oms_config.get("login") or {}
         return (login_cfg.get("username") or "").strip()
@@ -1720,7 +1795,7 @@ class StockAdjustToolManager:
         }
         return {"adjust_save": adjust_payload, "allocation_save": allocation_payload}
 
-    def execute_flow(self, logic_store: Dict[str, Any], share_store: Dict[str, Any], sa_store: Dict[str, Any], sku_ecode: str, qty: str) -> Dict[str, Any]:
+    def execute_flow(self, logic_store: Dict[str, Any], share_store: Dict[str, Any], sa_store: Dict[str, Any], sku_ecode: str, qty: str, on_step: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
         sku = self.get_sku(sku_ecode)
         payloads = self.build_payloads(logic_store, share_store, sa_store, sku, sku_ecode, qty)
         client = self._oms_client()
@@ -1729,18 +1804,27 @@ class StockAdjustToolManager:
 
         adjust_save = self._post_json(client, "/api/cs/sg/v2/sgBStoAdjust/save", payloads["adjust_save"])
         raw_steps.append({"step": "库存调整单保存", **adjust_save})
-        steps.append(self._business_step("库存调整单保存", adjust_save))
+        item = self._business_step("库存调整单保存", adjust_save)
+        steps.append(item)
+        if on_step:
+            on_step(item)
         adjust_id = self._extract_id(adjust_save["body"])
         if adjust_id:
             adjust_submit_payload = {"objId": adjust_id, "id": adjust_id, "ids": [adjust_id]}
             adjust_submit = self._post_json(client, "/api/cs/sg/v2/sgBStoAdjust/submit", adjust_submit_payload)
             raw_steps.append({"step": "库存调整单提交", **adjust_submit})
-            steps.append(self._business_step("库存调整单提交", adjust_submit))
+            item = self._business_step("库存调整单提交", adjust_submit)
+            steps.append(item)
+            if on_step:
+                on_step(item)
             time.sleep(0.2)
         else:
             adjust_submit = {"skipped": True, "message": "保存响应中未识别到单据ID，请查看保存失败原因或原始响应"}
             raw_steps.append({"step": "库存调整单提交", **adjust_submit})
-            steps.append(self._business_step("库存调整单提交", adjust_submit))
+            item = self._business_step("库存调整单提交", adjust_submit)
+            steps.append(item)
+            if on_step:
+                on_step(item)
 
         # #region debug-point C:allocation-save
         self._debug_event("C", "api_tool.py:allocation-save", "分货单保存接口调用前", {
@@ -1751,7 +1835,10 @@ class StockAdjustToolManager:
         # #endregion
         allocation_save = self._post_json(client, "/api/cs/sg/sgBShareAllocation/save", payloads["allocation_save"])
         raw_steps.append({"step": "分货单保存", **allocation_save})
-        steps.append(self._business_step("分货单保存", allocation_save))
+        item = self._business_step("分货单保存", allocation_save)
+        steps.append(item)
+        if on_step:
+            on_step(item)
         allocation_id = self._extract_id(allocation_save["body"])
         # #region debug-point C:allocation-saved
         self._debug_event("C", "api_tool.py:allocation-saved", "分货单保存接口响应", {
@@ -1777,11 +1864,17 @@ class StockAdjustToolManager:
             })
             # #endregion
             raw_steps.append({"step": "分货单提交", **allocation_submit})
-            steps.append(self._business_step("分货单提交", allocation_submit))
+            item = self._business_step("分货单提交", allocation_submit)
+            steps.append(item)
+            if on_step:
+                on_step(item)
         else:
             allocation_submit = {"skipped": True, "message": "保存响应中未识别到单据ID，请查看保存失败原因或原始响应"}
             raw_steps.append({"step": "分货单提交", **allocation_submit})
-            steps.append(self._business_step("分货单提交", allocation_submit))
+            item = self._business_step("分货单提交", allocation_submit)
+            steps.append(item)
+            if on_step:
+                on_step(item)
 
         return {
             "success": all(step["success"] for step in steps),
@@ -1790,6 +1883,63 @@ class StockAdjustToolManager:
             "raw_steps": raw_steps,
             "payloads": payloads,
         }
+
+
+def auto_adjust_stock_for_retail_order(
+    env_key: str,
+    retail_order_id: int,
+    shop_id: Any = None,
+    log: Optional[Callable[[str], None]] = None,
+) -> Dict[str, Any]:
+    """零售发货单缺货时自动执行调整库存（供正向造单节点串联后调用）。"""
+    def _emit(msg: str) -> None:
+        if log is not None:
+            log(msg)
+
+    manager = None
+    try:
+        lost_items = query_retail_order_lost_items(env_key, retail_order_id)
+        if not lost_items:
+            _emit("▸ 无缺货明细(qty_lost 均为 0)，跳过自动调整库存")
+            return {"success": True, "skipped": True, "reason": "无缺货明细", "results": []}
+
+        manager = StockAdjustToolManager(env_key)
+        logic_store, share_store, sa_store = manager.derive_adjust_targets_by_shop(shop_id)
+        if not logic_store:
+            _emit("▸ 未推导出逻辑仓，跳过自动调整库存")
+            return {"success": False, "skipped": True, "reason": "未推导出逻辑仓", "results": []}
+        if not sa_store:
+            _emit("▸ 未推导出配销仓，跳过自动调整库存")
+            return {"success": False, "skipped": True, "reason": "未推导出配销仓", "results": []}
+
+        _emit(
+            f"▸ 自动调整库存：逻辑仓={logic_store.get('ecode')}/{logic_store.get('ename')}(id={logic_store.get('id')})，"
+            f"配销仓={sa_store.get('ecode')}/{sa_store.get('ename')}(id={sa_store.get('id')})"
+        )
+
+        results = []
+        for lost in lost_items:
+            sku_ecode = lost.get("ps_c_sku_ecode")
+            if not sku_ecode:
+                continue
+            _emit(f"▸ 缺货 SKU={sku_ecode}，执行调整库存（数量=100）")
+            res = manager.execute_flow(
+                logic_store,
+                share_store,
+                sa_store,
+                sku_ecode,
+                "100",
+                on_step=lambda s: _emit(
+                    f"   - {s.get('step')}{s.get('result', '')}"
+                    + (f"；失败原因：{s['reason']}" if not s.get("success") and s.get("reason") else "")
+                ),
+            )
+            results.append({"sku_ecode": sku_ecode, **res})
+        _emit("▸ 自动调整库存完成")
+        return {"success": True, "skipped": False, "results": results}
+    finally:
+        if manager:
+            manager.close()
 
 
 # ==================== GUI 模式 ====================
@@ -2464,9 +2614,19 @@ def _run_gui(initial_tab: Optional[str] = None):
         manager = None
         try:
             manager = StockAdjustToolManager(_stock_env_key())
-            result = manager.execute_flow(logic_store, dict(stock_share_store), sa_store, sku_ecode, qty)
             stock_result_text.delete("1.0", tk.END)
-            stock_result_text.insert(tk.END, _format_stock_adjust_result(result))
+
+            def _on_step(item: Dict[str, Any]) -> None:
+                line = f"{item.get('step', '-')}{item.get('result', '-')}"
+                if not item.get("success") and item.get("reason"):
+                    line += f"；失败原因：{item['reason']}"
+                stock_result_text.insert(tk.END, line + "\n")
+                stock_result_text.see(tk.END)
+                root.update()
+
+            result = manager.execute_flow(
+                logic_store, dict(stock_share_store), sa_store, sku_ecode, qty, on_step=_on_step
+            )
             stock_status_var.set("执行完成，请查看响应")
         except Exception as e:
             error_text = f"执行失败: {e}"

@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from oms_client import OmsClient
 from order_service import _with_db_retry, db_connect, format_db_error
@@ -188,8 +188,14 @@ def insert_platform_return_order(env_key: str, build: ReverseBuildResult) -> int
         order_conn.close()
 
 
-def run_reverse_transfer(env_key: str, return_order_id: int) -> Dict[str, Any]:
+def run_reverse_transfer(
+    env_key: str, return_order_id: int, on_step: Optional[Callable[[str], None]] = None
+) -> Dict[str, Any]:
     """平台售后申请中间表 -> 售后申请单（ocBPlatformReturnOrder/batchConvert）。"""
+    def emit(msg: str) -> None:
+        if on_step is not None:
+            on_step(msg)
+
     cfg = load_config()
     env = get_env_config(env_key, cfg)
     transfer_cfg = cfg.get("reverse_transfer") or cfg.get("transfer") or {}
@@ -199,18 +205,23 @@ def run_reverse_transfer(env_key: str, return_order_id: int) -> Dict[str, Any]:
     result: Dict[str, Any] = {"return_order_id": return_order_id, "steps": []}
 
     if not transfer_cfg.get("auto_batch_convert", True):
+        emit("▸ 已跳过售后转换（reverse_transfer.auto_batch_convert=false）")
         result["steps"].append("已跳过售后转换（reverse_transfer.auto_batch_convert=false）")
         return result
 
+    emit("▸ 调用售后转换接口(batchConvert)中。。")
     client = OmsClient(oms_cfg["base_url"], login.get("username", ""), login.get("password", ""))
     client.login()
     code, body = client.batch_convert_platform_return(return_order_id)
+    emit(f"▸ 售后转换接口已提交（http={code}）")
     result["steps"].append({"batchConvert": {"http": code, "body": body}})
 
     order_conn = db_connect(env["order_db"], cfg)
     try:
         deadline = time.time() + timeout
+        round_no = 0
         while time.time() < deadline:
+            round_no += 1
             with order_conn.cursor() as cur:
                 cur.execute(
                     "SELECT id, return_no, tid, istrans FROM ip_b_platform_return_order WHERE id = %s",
@@ -219,7 +230,8 @@ def run_reverse_transfer(env_key: str, return_order_id: int) -> Dict[str, Any]:
                 po = cur.fetchone()
                 if po and int(po.get("istrans") or 0) == 2:
                     result["platform_return_order"] = po
-                    break
+                    emit("▸ 售后转换完成（平台售后申请单已生成）")
+                    return result
                 cur.execute(
                     "SELECT id, return_no, tid FROM oc_b_after_sale_apply_order "
                     "WHERE return_no = %s ORDER BY id DESC LIMIT 1",
@@ -228,9 +240,12 @@ def run_reverse_transfer(env_key: str, return_order_id: int) -> Dict[str, Any]:
                 apply = cur.fetchone()
                 if apply:
                     result["after_sale_apply_order"] = apply
-                    break
+                    emit("▸ 售后转换完成（售后申请单已生成）")
+                    return result
+            emit(f"▸ 等待售后转换结果中（第 {round_no} 轮查询）")
             time.sleep(2)
     finally:
         order_conn.close()
 
+    emit("▸ 售后转换超时，未查询到转换结果")
     return result

@@ -35,6 +35,7 @@ from order_service import (
     query_skus,
     run_transfer,
 )
+from api_tool import auto_adjust_stock_for_retail_order, query_retail_order_by_tid
 from settings import (
     env_label_map,
     get_env_by_label,
@@ -136,6 +137,7 @@ class PlatformOrderApp:
         self.shop_search_var = tk.StringVar()
         self.sku_search_var = tk.StringVar()
         self.status_var = tk.StringVar(value="就绪")
+        self.auto_adjust_var = tk.BooleanVar(value=False)
 
         self.shops: List[Dict[str, Any]] = []
         self.shop_by_label: Dict[str, Dict[str, Any]] = {}
@@ -313,6 +315,9 @@ class PlatformOrderApp:
         ttk.Button(btn_frame, text="生成订单", command=self._generate, style="Primary.TButton").pack(
             side=tk.LEFT
         )
+        ttk.Checkbutton(btn_frame, text="是否自动调整库存", variable=self.auto_adjust_var).pack(
+            side=tk.LEFT, padx=(12, 0)
+        )
         ttk.Label(
             btn_frame,
             text="流程：选择环境与报文 → 仅预览 → 可改报文 → 生成订单（店铺由报文卖家昵称自动匹配，店铺下拉仅用于替换昵称）",
@@ -332,6 +337,18 @@ class PlatformOrderApp:
         self.preview_text.configure(insertbackground="#FFFFFF")
         self.preview_text.pack(fill=tk.BOTH, expand=True)
         self._guard_wheel(self.preview_text)
+
+        log_frame = ttk.LabelFrame(
+            self.root,
+            text=" 运行日志（执行一步输出一步） ",
+            style="Card.TLabelframe",
+        )
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=SECTION_PADX, pady=(0, SECTION_GAP))
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=10, wrap=tk.NONE)
+        configure_log_text(self.log_text, mono=self.mono_font)
+        self.log_text.configure(insertbackground="#FFFFFF")
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        self._guard_wheel(self.log_text)
 
         status = ttk.Label(self.root, textvariable=self.status_var, style="Hint.TLabel", font=fd, anchor="w")
         status.pack(fill=tk.X, padx=SECTION_PADX, pady=(0, 8))
@@ -648,6 +665,17 @@ class PlatformOrderApp:
             raise ValueError(f"店铺档案中未找到卖家昵称 [{seller_nick}] 对应的店铺，请检查 cp_c_shop")
         return seller_nick, shop
 
+    def _clear_log(self) -> None:
+        self.log_text.delete("1.0", tk.END)
+
+    def _log(self, msg: str) -> None:
+        self.root.after(0, lambda m=msg: self._append_log(m))
+
+    def _append_log(self, msg: str) -> None:
+        self.log_text.insert(tk.END, msg + "\n")
+        self.log_text.see(tk.END)
+        self.root.update_idletasks()
+
     def _preview(self) -> None:
         try:
             platform = self.platform_var.get()
@@ -677,11 +705,19 @@ class PlatformOrderApp:
             messagebox.showerror("预览失败", str(e))
 
     def _generate(self) -> None:
+        auto_adjust = bool(self.auto_adjust_var.get())
+        self._clear_log()
+
+        def emit(msg: str) -> None:
+            self._log(msg)
+
         def task():
             try:
+                env_key = self._env_key()
                 platform = self.platform_var.get()
                 editor_text = self.preview_text.get("1.0", tk.END).strip()
                 if not editor_text:
+                    emit("✗ 报文为空，请先点击「仅预览」")
                     self.root.after(0, lambda: messagebox.showwarning("提示", "报文为空，请先点击「仅预览」"))
                     return
 
@@ -692,33 +728,23 @@ class PlatformOrderApp:
                 from ip_order_service import insert_taobao_order, insert_jingdong_order
 
                 if family in ("jdp_array", "jdp_object"):
-                    editor_mq, _new_tid = allocate_and_regenerate(self._env_key(), editor_mq)
-                    mid, tid = insert_taobao_order(self._env_key(), editor_mq, shop)
-                    lines = [
-                        f"淘宝订单已写入中间表 ip_b_taobao_order id={mid}",
-                        f"TID={tid}",
-                    ]
-
-                    def done():
-                        messagebox.showinfo("生成成功", "\n".join(lines))
-                        self.status_var.set(f"淘宝订单已生成 tid={tid} id={mid}")
-
-                    self.root.after(0, done)
+                    emit("▸ 识别为淘宝报文，开始重新分配单号")
+                    editor_mq, _new_tid = allocate_and_regenerate(env_key, editor_mq)
+                    mid, tid = insert_taobao_order(env_key, editor_mq, shop)
+                    emit(f"▸ 淘宝订单已写入中间表 ip_b_taobao_order id={mid}")
+                    emit(f"▸ TID={tid}")
+                    emit("▸ 生成完成")
+                    self.root.after(0, lambda: self.status_var.set(f"淘宝订单已生成 tid={tid} id={mid}"))
                     return
 
                 if family == "jd_array":
-                    editor_mq, _order_id = allocate_and_regenerate(self._env_key(), editor_mq)
-                    mid, order_id = insert_jingdong_order(self._env_key(), editor_mq, shop)
-                    lines = [
-                        f"京东订单已写入中间表 ip_b_jingdong_order id={mid}",
-                        f"orderId={order_id}",
-                    ]
-
-                    def done():
-                        messagebox.showinfo("生成成功", "\n".join(lines))
-                        self.status_var.set(f"京东订单已生成 orderId={order_id} id={mid}")
-
-                    self.root.after(0, done)
+                    emit("▸ 识别为京东报文，开始重新分配单号")
+                    editor_mq, _order_id = allocate_and_regenerate(env_key, editor_mq)
+                    mid, order_id = insert_jingdong_order(env_key, editor_mq, shop)
+                    emit(f"▸ 京东订单已写入中间表 ip_b_jingdong_order id={mid}")
+                    emit(f"▸ orderId={order_id}")
+                    emit("▸ 生成完成")
+                    self.root.after(0, lambda: self.status_var.set(f"京东订单已生成 orderId={order_id} id={mid}"))
                     return
 
                 from settings import get_platform_meta
@@ -740,23 +766,29 @@ class PlatformOrderApp:
                         base_raw=editor_mq,
                     )
 
-                db_msg, tid = finalize_build_for_insert(self._env_key(), build, editor_mq)
-                source_id = insert_source(self._env_key(), build, db_msg, tid)
-                transfer_result = run_transfer(self._env_key(), source_id, tid)
+                emit("▸ 开始构建入库报文")
+                db_msg, tid = finalize_build_for_insert(env_key, build, editor_mq)
+                emit(f"▸ TID={tid}")
+                source_id = insert_source(env_key, build, db_msg, tid)
+                emit(f"▸ 报文已写入 source_id={source_id}")
+                transfer_result = run_transfer(env_key, source_id, tid)
+                emit("▸ 转单完成: " + json.dumps(transfer_result, ensure_ascii=False, default=str)[:600])
 
-                lines = [
-                    f"报文已写入 source_id={source_id}",
-                    f"TID={tid}",
-                    f"转单: {json.dumps(transfer_result, ensure_ascii=False, default=str)[:600]}",
-                ]
+                if auto_adjust:
+                    retail = query_retail_order_by_tid(env_key, tid)
+                    if retail and retail.get("order_status") == 2:
+                        emit("▸ 零售发货单 order_status=2 且已勾选自动调整库存，开始自动调整库存")
+                        auto_adjust_stock_for_retail_order(
+                            env_key, retail["id"], retail.get("cp_c_shop_id"), log=emit
+                        )
+                    else:
+                        emit("▸ 零售发货单未达到 order_status=2，跳过自动调整库存")
 
-                def done():
-                    messagebox.showinfo("生成成功", "\n".join(lines))
-                    self.status_var.set(f"订单已生成 tid={tid} source_id={source_id}")
-
-                self.root.after(0, done)
+                emit("▸ 生成完成")
+                self.root.after(0, lambda: self.status_var.set(f"订单已生成 tid={tid} source_id={source_id}"))
             except Exception as e:
-                self.root.after(0, lambda err=e: messagebox.showerror("生成失败", str(err)))
+                emit(f"✗ 生成失败：{e}")
+                self.root.after(0, lambda err=e: messagebox.showerror("生成失败", str(e)))
 
         self.status_var.set("正在生成订单...")
         threading.Thread(target=task, daemon=True).start()
