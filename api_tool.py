@@ -369,7 +369,12 @@ def _oms_session_cookie(env_key: str) -> str:
 
 
 def _xxl_login(env_key: str, oms_cookie: Optional[str] = None) -> requests.Session:
-    """登录 XXL-Job，返回已登录的 session；并携带 OMS sessionCookie 到后续请求。"""
+    """登录 XXL-Job，返回已登录的 session。
+
+    /xxl-job-admin 挂在 OMS 同域名下，由 SSO 网关按 OMS 的 sessionCookie 鉴权：
+    缺少/无效 cookie 会被 tengine 直接 403。因此必须在调用 /auth/doLogin 之前
+    先注入 OMS 的 sessionCookie，否则登录请求本身就会被网关拦截。
+    """
     configs = get_xxl_job_configs()
     cfg = configs.get(env_key) or configs.get(DEFAULT_ENV) or next(iter(configs.values()), {})
     if oms_cookie is None:
@@ -379,6 +384,12 @@ def _xxl_login(env_key: str, oms_cookie: Optional[str] = None) -> requests.Sessi
             oms_cookie = ""
     session = requests.Session()
     session.trust_env = False
+    # 先注入 OMS sessionCookie，保证登录请求本身就能通过 SSO 网关鉴权
+    if oms_cookie:
+        from urllib.parse import urlparse
+        host = urlparse(cfg["url"]).hostname
+        if host:
+            session.cookies.set("sessionCookie", oms_cookie, domain=host, path="/")
     login_url = cfg["url"].rstrip("/") + "/auth/doLogin"
     resp = session.post(
         login_url, data={"userName": cfg["username"], "password": cfg["password"]}, timeout=20
@@ -391,11 +402,6 @@ def _xxl_login(env_key: str, oms_cookie: Optional[str] = None) -> requests.Sessi
         raise RuntimeError(f"XXL-Job 登录失败: {login_data}")
     session._xxl_url = cfg["url"]
     session._oms_cookie = oms_cookie
-    if oms_cookie:
-        from urllib.parse import urlparse
-        host = urlparse(cfg["url"]).hostname
-        if host:
-            session.cookies.set("sessionCookie", oms_cookie, domain=host, path="/")
     return session
 
 
