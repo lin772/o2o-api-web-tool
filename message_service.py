@@ -267,8 +267,10 @@ def _regenerate_taobao(raw: Any, origin_tid: str, new_tid: str) -> Any:
     gift_mids/snapshot_url/service_tags/promotion.id 等）由一次深度按值替换统一覆盖。
     """
     entries = raw if isinstance(raw, list) else [raw]
+    result: List[Any] = []
     for entry in entries:
         if not isinstance(entry, dict):
+            result.append(entry)
             continue
         mapping: Dict[str, str] = {origin_tid: new_tid}
         trade: Any = None
@@ -288,8 +290,8 @@ def _regenerate_taobao(raw: Any, origin_tid: str, new_tid: str) -> Any:
                     continue
                 # 赠品子单号 = 其挂靠主品的新子单号；找不到挂靠时回退 new_tid。
                 mapping[old_oid] = main_new.get(_gift_ref(g)) or new_tid
-        _replace_values_deep(entry, mapping)
-    return raw
+        result.append(_replace_values_deep(entry, mapping))
+    return result if isinstance(raw, list) else result[0]
 
 
 def _regenerate_standplat(raw: Any, origin_tid: str, new_tid: str) -> Any:
@@ -299,11 +301,10 @@ def _regenerate_standplat(raw: Any, origin_tid: str, new_tid: str) -> Any:
     activitys[].oid / order_tags[].oid 等引用由深度按值替换统一覆盖。
     """
     if not isinstance(raw, dict):
-        _replace_values_deep(raw, {origin_tid: new_tid})
-        return raw
+        return _replace_values_deep(raw, {origin_tid: new_tid})
     data = raw.get("data")
     if isinstance(data, list):
-        for order in data:
+        for idx, order in enumerate(data):
             if not isinstance(order, dict):
                 continue
             mapping: Dict[str, str] = {origin_tid: new_tid}
@@ -318,7 +319,7 @@ def _regenerate_standplat(raw: Any, origin_tid: str, new_tid: str) -> Any:
                     if not old_oid:
                         continue
                     mapping[old_oid] = main_new.get(_gift_ref(g)) or new_tid
-            _replace_values_deep(order, mapping)
+            data[idx] = _replace_values_deep(order, mapping)
     return raw
 
 
@@ -328,8 +329,7 @@ def _regenerate_jd(raw: Any, origin_tid: str, new_tid: str) -> Any:
     orderId 出现在 orderInfoList[].orderId / ocsQueryList[].orderId /
     orderPrintData.id 等多个位置，按值替换即可全部覆盖。
     """
-    _replace_values_deep(raw, {origin_tid: new_tid})
-    return raw
+    return _replace_values_deep(raw, {origin_tid: new_tid})
 
 
 def regenerate_order_numbers(raw: Any, origin_tid: str, new_tid: str) -> Any:
