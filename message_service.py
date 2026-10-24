@@ -209,20 +209,30 @@ def _trade_orders(trade: Any) -> List[Dict[str, Any]]:
 
 
 def _renumber_items(items: List[Dict[str, Any]], new_tid: str) -> Dict[str, str]:
-    """给订单全部明细（主品+赠品，按数组顺序）编号子单号。
+    """给订单全部明细（主品+赠品，按数组顺序）就地编号子单号。
 
     单明细 -> new_tid；多明细 -> new_tid + 两位序号（01 起，按数组顺序）。
-    返回 {旧 oid: 新 oid} 映射；赠品对主品的引用字段（gift_mids / gift_main_oid 等）
-    由 _replace_values_deep 按值替换自动指向主品新子单号，无需在此单独处理。
+    子单号字段 oid / oid_str 直接按位置就地写入，保证每行明细子单号唯一——即便同一
+    订单内多个明细的旧 oid 相同（例如复制明细造多明细、或仅主品 oid==tid 被复制），
+    也不会因为「旧 oid 作为 dict key」而互相覆盖导致落库 OID 重复。
+
+    仍返回 {旧 oid: 新 oid} 映射，供 _replace_values_deep 对引用字段
+    （gift_mids / snapshot_url / kd_child_discount_fee 等）按值替换；这里用
+    setdefault，仅保留第一条旧 oid，避免同值覆盖。
     """
     single = len(items) <= 1
     mapping: Dict[str, str] = {}
     for i, m in enumerate(items, start=1):
-        old_oid = _oid(m)
-        if not old_oid:
+        if not isinstance(m, dict):
             continue
+        old_oid = _oid(m)
         new_oid = new_tid if single else f"{new_tid}{i:02d}"
-        mapping[old_oid] = new_oid
+        if "oid" in m:
+            m["oid"] = new_oid
+        if "oid_str" in m:
+            m["oid_str"] = new_oid
+        if old_oid:
+            mapping.setdefault(old_oid, new_oid)
     return mapping
 
 
@@ -238,14 +248,16 @@ def _regenerate_taobao(raw: Any, origin_tid: str, new_tid: str) -> Any:
         if not isinstance(entry, dict):
             result.append(entry)
             continue
-        mapping: Dict[str, str] = {origin_tid: new_tid}
+        mapping: Dict[str, str] = {}
         trade: Any = None
         try:
             trade = entry["jdp_response"]["trade_fullinfo_get_response"]["trade"]
         except (KeyError, TypeError):
             trade = None
         if isinstance(trade, dict):
-            mapping.update(_renumber_items(_trade_orders(trade), new_tid))
+            mapping = _renumber_items(_trade_orders(trade), new_tid)
+        # 主单号映射优先：避免旧 oid==tid（仅主品单明细）时被上面的明细映射覆盖
+        mapping[origin_tid] = new_tid
         result.append(_replace_values_deep(entry, mapping))
     return result if isinstance(raw, list) else result[0]
 
@@ -264,10 +276,12 @@ def _regenerate_standplat(raw: Any, origin_tid: str, new_tid: str) -> Any:
         for idx, order in enumerate(data):
             if not isinstance(order, dict):
                 continue
-            mapping: Dict[str, str] = {origin_tid: new_tid}
             items = order.get("items") or []
+            mapping: Dict[str, str] = {}
             if isinstance(items, list):
-                mapping.update(_renumber_items(items, new_tid))
+                mapping = _renumber_items(items, new_tid)
+            # 主单号映射优先：避免旧 oid==tid 时被明细映射覆盖
+            mapping[origin_tid] = new_tid
             data[idx] = _replace_values_deep(order, mapping)
     return raw
 
