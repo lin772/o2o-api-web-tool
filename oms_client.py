@@ -89,11 +89,6 @@ class OmsClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.verify = False
-        # 与浏览器 AJAX 请求保持一致：OMS 的 save/submit 等接口依赖这些头做鉴权/CSRF 校验
-        self.session.headers.update({
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": self.base_url + "/",
-        })
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def login(self) -> Dict[str, Any]:
@@ -121,7 +116,16 @@ class OmsClient:
         data = resp.json()
         if data.get("code") != 1:
             raise RuntimeError(f"OMS 登录失败: {data}")
+        self._fix_session_cookie_secure()
         return data
+
+    def _fix_session_cookie_secure(self) -> None:
+        """登录响应会同时下发两个同名 sessionCookie（其一携带 Secure 属性）。
+        requests 用带 Secure 的覆盖，导致 http（非 https）环境后续请求不携带该
+        会话 cookie，接口鉴权失败返回 403。此处强制清除 Secure 标志。"""
+        for cookie in self.session.cookies:
+            if cookie.name == "sessionCookie" and cookie.secure:
+                cookie.secure = False
 
     def batch_transfer_source(self, source_id: int) -> Tuple[int, Dict[str, Any]]:
         """平台订单报文 -> 平台订单（等价 MQ 转单）"""
